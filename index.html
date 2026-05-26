@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>D426 Study Game — WGU Data Management Foundations</title>
+  <style>
+    :root {
+      --bg: #0e1117;
+      --bg2: #161b27;
+      --bg3: #1e2535;
+      --border: rgba(255,255,255,0.08);
+      --border2: rgba(255,255,255,0.15);
+      --text: #f0f2f8;
+      --muted: #8b95b0;
+      --hint: #5a6480;
+      --blue: #3b82f6;
+      --blue-dark: #1d4ed8;
+      --blue-bg: rgba(59,130,246,0.12);
+      --green: #22c55e;
+      --green-bg: rgba(34,197,94,0.12);
+      --red: #ef4444;
+      --red-bg: rgba(239,68,68,0.12);
+      --amber: #f59e0b;
+      --amber-bg: rgba(245,158,11,0.12);
+      --teal: #14b8a6;
+      --purple: #a78bfa;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; }
+    body { min-height: 100vh; min-height: 100dvh; }
+
+    /* ── Layout ── */
+    .app { max-width: 640px; margin: 0 auto; padding: 0 16px 120px; }
+    header { padding: 28px 0 20px; text-align: center; }
+    header h1 { font-size: clamp(18px, 5vw, 24px); font-weight: 700; letter-spacing: -0.5px; color: var(--text); }
+    header p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+    /* ── Mode tabs ── */
+    .mode-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+    .mode-btn {
+      padding: 12px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border2);
+      background: var(--bg2); color: var(--muted); font-size: 13px; font-weight: 500;
+      cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;
+      transition: all 0.15s;
+    }
+    .mode-btn .icon { font-size: 20px; }
+    .mode-btn:hover { border-color: var(--blue); color: var(--text); }
+    .mode-btn.active { background: var(--blue-bg); border-color: var(--blue); color: var(--blue); }
+
+    /* ── Chapter filter ── */
+    .ch-wrap { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 16px; scrollbar-width: none; }
+    .ch-wrap::-webkit-scrollbar { display: none; }
+    .ch-btn {
+      flex-shrink: 0; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border2);
+      background: var(--bg2); color: var(--muted); font-size: 12px; font-weight: 500; cursor: pointer;
+      white-space: nowrap; transition: all 0.15s;
+    }
+    .ch-btn:hover { border-color: var(--teal); color: var(--text); }
+    .ch-btn.active { background: rgba(20,184,166,0.15); border-color: var(--teal); color: var(--teal); }
+
+    /* ── Stats bar ── */
+    .stats-bar { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 20px; }
+    .stat { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 8px; text-align: center; }
+    .stat-num { font-size: 20px; font-weight: 700; color: var(--text); }
+    .stat-label { font-size: 10px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: .05em; }
+    .stat.c .stat-num { color: var(--green); }
+    .stat.w .stat-num { color: var(--red); }
+    .stat.s .stat-num { color: var(--amber); }
+
+    /* ── Progress ── */
+    .prog-bar { height: 4px; background: var(--bg3); border-radius: 99px; overflow: hidden; margin-bottom: 6px; }
+    .prog-fill { height: 100%; background: var(--blue); border-radius: 99px; transition: width .3s; }
+    .prog-text { font-size: 12px; color: var(--muted); text-align: center; margin-bottom: 14px; }
+
+    /* ── Flashcard ── */
+    .flashcard {
+      background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius);
+      padding: 28px 20px 20px; min-height: 200px; cursor: pointer; position: relative;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      text-align: center; transition: border-color .2s; user-select: none;
+    }
+    .flashcard:active { border-color: var(--blue); }
+    .flashcard .chip {
+      position: absolute; top: 12px; left: 12px; font-size: 10px; background: var(--bg3);
+      color: var(--muted); padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border);
+    }
+    .flashcard .flip-hint { position: absolute; bottom: 12px; right: 14px; font-size: 11px; color: var(--hint); }
+    .flashcard .term { font-size: clamp(16px, 4.5vw, 22px); font-weight: 600; color: var(--text); line-height: 1.35; }
+    .flashcard .divider { width: 40px; height: 1px; background: var(--border2); margin: 16px auto; }
+    .flashcard .def-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
+    .flashcard .definition { font-size: 14px; color: var(--muted); line-height: 1.65; }
+
+    /* ── Buttons ── */
+    .btn-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
+    .btn {
+      padding: 10px 20px; border-radius: var(--radius-sm); border: 1px solid var(--border2);
+      background: var(--bg2); color: var(--text); font-size: 14px; font-weight: 500;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all .15s;
+    }
+    .btn:hover { background: var(--bg3); border-color: var(--border2); }
+    .btn:active { transform: scale(.97); }
+    .btn:disabled { opacity: .35; cursor: default; transform: none; }
+    .btn.green { border-color: var(--green); color: var(--green); }
+    .btn.green:hover { background: var(--green-bg); }
+    .btn.red { border-color: var(--red); color: var(--red); }
+    .btn.red:hover { background: var(--red-bg); }
+    .btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+    .btn.primary:hover { background: var(--blue-dark); border-color: var(--blue-dark); }
+    .btn.ghost { background: transparent; border-color: transparent; color: var(--muted); font-size: 12px; padding: 8px 14px; }
+    .btn.ghost:hover { color: var(--text); background: var(--bg3); border-color: var(--border); }
+
+    /* ── Quiz ── */
+    .quiz-card { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 22px 18px; }
+    .quiz-q { font-size: 15px; font-weight: 500; line-height: 1.55; color: var(--text); margin-bottom: 18px; }
+    .quiz-q em { color: var(--muted); font-style: italic; font-weight: 400; }
+    .quiz-options { display: flex; flex-direction: column; gap: 10px; }
+    .q-opt {
+      padding: 13px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border2);
+      background: var(--bg3); color: var(--text); font-size: 14px; cursor: pointer;
+      text-align: left; line-height: 1.45; transition: all .15s;
+    }
+    .q-opt:hover:not(:disabled) { border-color: var(--blue); background: var(--blue-bg); }
+    .q-opt.correct { border-color: var(--green) !important; background: var(--green-bg) !important; color: var(--green); }
+    .q-opt.wrong { border-color: var(--red) !important; background: var(--red-bg) !important; color: var(--red); }
+    .q-opt:disabled { cursor: default; }
+    .feedback { margin-top: 14px; padding: 12px 16px; border-radius: var(--radius-sm); font-size: 13px; line-height: 1.5; }
+    .feedback.c { background: var(--green-bg); color: var(--green); border: 1px solid rgba(34,197,94,.3); }
+    .feedback.w { background: var(--red-bg); color: #fca5a5; border: 1px solid rgba(239,68,68,.3); }
+
+    /* ── Matching ── */
+    .match-instructions { font-size: 12px; color: var(--muted); text-align: center; margin-bottom: 14px; }
+    .match-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .match-col-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; text-align: center; padding: 4px 0 8px; font-weight: 500; }
+    .m-item {
+      padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border2);
+      background: var(--bg3); color: var(--text); font-size: 12px; cursor: pointer;
+      text-align: center; line-height: 1.45; transition: all .15s; min-height: 56px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .m-item:hover:not([disabled]) { border-color: var(--blue); background: var(--blue-bg); }
+    .m-item.sel { border-color: var(--blue); background: var(--blue-bg); color: #93c5fd; }
+    .m-item.done { border-color: var(--green); background: var(--green-bg); color: var(--green); cursor: default; }
+    .m-item.err { border-color: var(--red); background: var(--red-bg); animation: shk .3s; }
+    @keyframes shk { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+    .m-item[disabled]:not(.done) { opacity: .4; cursor: default; }
+
+    /* ── Results ── */
+    .results { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 32px 24px; text-align: center; }
+    .results .score { font-size: 56px; font-weight: 800; color: var(--blue); line-height: 1; }
+    .results .score-sub { font-size: 14px; color: var(--muted); margin-top: 4px; margin-bottom: 24px; }
+    .results .grade { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+
+    /* ── Misc ── */
+    .center { text-align: center; padding: 2rem; color: var(--muted); font-size: 14px; }
+    .spacer { height: 12px; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>D426 — Data Management Foundations</h1>
+    <p>WGU Study Game · Flashcards · Quiz · Matching</p>
+  </header>
+
+  <div class="mode-tabs">
+    <button class="mode-btn active" onclick="setMode('flash')" id="tab-flash">
+      <span class="icon">🃏</span>Flashcards
+    </button>
+    <button class="mode-btn" onclick="setMode('quiz')" id="tab-quiz">
+      <span class="icon">🧠</span>Quiz
+    </button>
+    <button class="mode-btn" onclick="setMode('match')" id="tab-match">
+      <span class="icon">🔗</span>Matching
+    </button>
+  </div>
+
+  <div class="ch-wrap">
+    <button class="ch-btn active" onclick="setChapter('all',this)">All Chapters</button>
+    <button class="ch-btn" onclick="setChapter(1,this)">Ch 1 · Intro</button>
+    <button class="ch-btn" onclick="setChapter(2,this)">Ch 2 · Mgmt</button>
+    <button class="ch-btn" onclick="setChapter(3,this)">Ch 3 · Queries</button>
+    <button class="ch-btn" onclick="setChapter(4,this)">Ch 4 · Design</button>
+    <button class="ch-btn" onclick="setChapter(5,this)">Ch 5 · Indexes</button>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat"><div class="stat-num" id="s-total">0</div><div class="stat-label">Seen</div></div>
+    <div class="stat c"><div class="stat-num" id="s-correct">0</div><div class="stat-label">Correct</div></div>
+    <div class="stat w"><div class="stat-num" id="s-wrong">0</div><div class="stat-label">Missed</div></div>
+    <div class="stat s"><div class="stat-num" id="s-streak">0</div><div class="stat-label">🔥 Streak</div></div>
+  </div>
+
+  <div id="main-area"></div>
+</div>
+
+<script>
+const TERMS = [
+  // Ch 1 — Intro to Databases
+  {ch:1,t:"Data",d:"Numeric, textual, visual, or audio information that describes real-world systems."},
+  {ch:1,t:"Database",d:"A collection of data in a structured format, invariably stored on computers in modern use."},
+  {ch:1,t:"DBMS (Database Management System)",d:"Software that reads and writes data in a database, ensuring data is secure, internally consistent, and available at all times."},
+  {ch:1,t:"Query",d:"A request to retrieve or change data in a database."},
+  {ch:1,t:"Query language",d:"A specialized programming language designed specifically for database systems."},
+  {ch:1,t:"Database application",d:"Software that helps business users interact with database systems."},
+  {ch:1,t:"Database administrator",d:"Responsible for securing the database against unauthorized users and enforcing procedures for user access and system availability."},
+  {ch:1,t:"Database designer",d:"Determines the format of each data element and overall database structure, balancing storage, response time, and data rules."},
+  {ch:1,t:"Database programmer",d:"Develops computer programs that utilize a database."},
+  {ch:1,t:"Database user",d:"A consumer of data who requests, updates, or uses stored data; usually accesses the database via applications."},
+  {ch:1,t:"Transaction",d:"A group of queries that must be either completed or rejected as a whole — partial execution causes inconsistent data."},
+  {ch:1,t:"Query processor",d:"Interprets queries, creates a plan to modify or retrieve data, and returns results to the application."},
+  {ch:1,t:"Query optimization",d:"Process performed by the query processor to ensure the most efficient instructions are executed on data."},
+  {ch:1,t:"Storage manager",d:"Translates query processor instructions into low-level file-system commands that modify or retrieve data."},
+  {ch:1,t:"Transaction manager",d:"Ensures transactions are properly executed."},
+  {ch:1,t:"Log",d:"A file containing a complete record of all inserts, updates, and deletes processed by the database."},
+  {ch:1,t:"Catalog (data dictionary)",d:"A directory of tables, columns, indexes, and other database objects."},
+  {ch:1,t:"Relational database",d:"Stores data in tables, columns, and rows — similar to a spreadsheet."},
+  {ch:1,t:"SQL (Structured Query Language)",d:"The standard query language of relational database systems; includes statements to read, write, create, delete, and administer data."},
+  {ch:1,t:"Big data",d:"Massive volumes of online data — often with poorly structured or missing information — generated by internet growth."},
+  {ch:1,t:"NoSQL",d:"Non-relational database systems ('not only SQL') optimized for big data."},
+  {ch:1,t:"Open source",d:"Software that anyone can inspect, copy, and modify with no licensing fee."},
+  {ch:1,t:"CRUD",d:"Acronym for Create, Read, Update, Delete — the four common database query operations."},
+  {ch:1,t:"CREATE TABLE statement",d:"SQL statement that creates a new table by specifying the table and column names."},
+  {ch:1,t:"Data type",d:"Assigned to each column to indicate the format of column values; can be numeric, textual, or complex."},
+  {ch:1,t:"Statement (SQL)",d:"A complete, executable SQL database command."},
+  {ch:1,t:"Analog data",d:"Data encoded as continuous variations on physical media — how most data was stored historically."},
+  {ch:1,t:"Digital data",d:"Data encoded as zeros and ones on electronic and magnetic media — how most data is stored today."},
+  // Ch 2 — Database Management
+  {ch:2,t:"Table (relation)",d:"A two-dimensional structure of rows and columns representing data about one entity type in a relational database."},
+  {ch:2,t:"Row (record / tuple)",d:"A single entity instance in a table."},
+  {ch:2,t:"Column (field / attribute)",d:"Represents a descriptive property of an entity in a table."},
+  {ch:2,t:"Primary key",d:"A column or group of columns that uniquely identifies each row in a table."},
+  {ch:2,t:"Composite primary key",d:"A primary key made up of two or more columns."},
+  {ch:2,t:"Foreign key",d:"A column or group of columns that refers to the primary key of another (or the same) table."},
+  {ch:2,t:"Referential integrity",d:"The requirement that all foreign key values must match an existing primary key value or be NULL."},
+  {ch:2,t:"NULL",d:"A special value meaning 'unknown' or 'missing' — distinct from zero or a blank string."},
+  {ch:2,t:"INSERT statement",d:"SQL statement that adds a new row to a table."},
+  {ch:2,t:"UPDATE statement",d:"SQL statement that modifies existing rows in a table."},
+  {ch:2,t:"DELETE statement",d:"SQL statement that removes rows from a table."},
+  {ch:2,t:"ALTER TABLE statement",d:"SQL statement that adds, modifies, or drops columns and constraints in an existing table."},
+  {ch:2,t:"DROP TABLE statement",d:"SQL statement that permanently deletes a table and all of its data."},
+  {ch:2,t:"RESTRICT action",d:"Referential integrity action that rejects an update or delete when a dependent foreign key exists."},
+  {ch:2,t:"CASCADE action",d:"Referential integrity action that propagates primary key changes automatically to all related foreign keys."},
+  {ch:2,t:"SET NULL action",d:"Referential integrity action that sets invalid foreign keys to NULL when the referenced row is deleted or updated."},
+  {ch:2,t:"SET DEFAULT action",d:"Referential integrity action that sets invalid foreign keys to the column's default value."},
+  {ch:2,t:"ON DELETE / ON UPDATE clause",d:"Clauses of a FOREIGN KEY constraint that specify the action (RESTRICT, SET NULL, SET DEFAULT, CASCADE) taken on referential integrity violation."},
+  {ch:2,t:"UNIQUE constraint",d:"Ensures that values in a column, or group of columns, are unique across all rows in a table."},
+  {ch:2,t:"CHECK constraint",d:"Specifies an expression on one or more columns; the constraint is violated when the expression evaluates to FALSE."},
+  {ch:2,t:"Column constraint",d:"A constraint appearing after the column name and data type in CREATE TABLE; governs values in a single column."},
+  {ch:2,t:"Table constraint",d:"A constraint in a separate clause of CREATE TABLE that can govern values in one or more columns."},
+  {ch:2,t:"CONSTRAINT keyword",d:"Optional keyword used to name a table constraint, followed by the constraint name and declaration."},
+  {ch:2,t:"NOT NULL constraint",d:"Ensures a column cannot contain a NULL value."},
+  {ch:2,t:"DEFAULT value",d:"A value automatically assigned to a column when no value is specified during an INSERT."},
+  {ch:2,t:"AUTO_INCREMENT",d:"A column property (MySQL) that automatically generates a unique incrementing integer for each new row."},
+  // Ch 3 — Complex Queries
+  {ch:3,t:"SELECT statement",d:"SQL statement that retrieves rows from a table using a SELECT clause (what to return) and a FROM clause (which table)."},
+  {ch:3,t:"WHERE clause",d:"Optional SELECT clause that filters rows; a row is returned only when the condition evaluates to TRUE."},
+  {ch:3,t:"Result table",d:"The set of rows returned by a SELECT statement."},
+  {ch:3,t:"Operator",d:"A symbol that computes a value from one or more operands — arithmetic, comparison, or logical."},
+  {ch:3,t:"Operand",d:"A value used as input to an operator in an expression."},
+  {ch:3,t:"Expression",d:"A string of operators, operands, and parentheses that evaluates to a single value."},
+  {ch:3,t:"Operator precedence",d:"The order in which operators in an expression are evaluated; parentheses override precedence."},
+  {ch:3,t:"Unary operator",d:"An operator that takes one operand (e.g., NOT, negative sign)."},
+  {ch:3,t:"Binary operator",d:"An operator that takes two operands (e.g., +, =, AND)."},
+  {ch:3,t:"Condition",d:"An expression that evaluates to a logical value (TRUE, FALSE, or NULL)."},
+  {ch:3,t:"LIMIT clause",d:"MySQL clause that limits the number of rows returned by a SELECT statement."},
+  {ch:3,t:"ORDER BY clause",d:"SQL clause that sorts the result table by one or more columns — ASC (default) or DESC."},
+  {ch:3,t:"GROUP BY clause",d:"SQL clause that groups rows sharing the same values in specified columns, typically used with aggregate functions."},
+  {ch:3,t:"HAVING clause",d:"SQL clause that filters groups produced by GROUP BY — like WHERE but applied after grouping."},
+  {ch:3,t:"Aggregate function",d:"Functions such as COUNT, SUM, AVG, MIN, and MAX that compute a single value from a group of rows."},
+  {ch:3,t:"INNER JOIN",d:"Returns only the rows where the join condition is satisfied in both tables."},
+  {ch:3,t:"LEFT (OUTER) JOIN",d:"Returns all rows from the left table and matching rows from the right; unmatched right-side columns are NULL."},
+  {ch:3,t:"RIGHT (OUTER) JOIN",d:"Returns all rows from the right table and matching rows from the left; unmatched left-side columns are NULL."},
+  {ch:3,t:"FULL (OUTER) JOIN",d:"Returns all rows from both tables; unmatched columns on either side are NULL."},
+  {ch:3,t:"CROSS JOIN",d:"Returns all combinations of rows from two tables — the Cartesian product."},
+  {ch:3,t:"Subquery",d:"A query nested inside another SQL query, used to compute intermediate results for the outer query."},
+  {ch:3,t:"Correlated subquery",d:"A subquery that references a column from the outer query and is re-executed for each outer row."},
+  {ch:3,t:"UNION operator",d:"Combines the result tables of two SELECT statements, removing duplicate rows."},
+  {ch:3,t:"INTERSECT operator",d:"Returns only rows that appear in both result tables of two SELECT statements."},
+  {ch:3,t:"EXCEPT (MINUS) operator",d:"Returns rows present in the first result table but not in the second."},
+  {ch:3,t:"View",d:"A named SELECT statement stored in the database that acts like a virtual table."},
+  {ch:3,t:"WITH CHECK OPTION",d:"Clause on a view that rejects inserts and updates that would not be visible through the view's WHERE condition."},
+  {ch:3,t:"LIKE operator",d:"Used in WHERE clauses to match string patterns; % matches any sequence of characters, _ matches exactly one character."},
+  {ch:3,t:"BETWEEN operator",d:"Used in WHERE clauses to select values within an inclusive range."},
+  {ch:3,t:"IN operator",d:"Used in WHERE clauses to match a value against a list or subquery result set."},
+  {ch:3,t:"IS NULL / IS NOT NULL",d:"Used in WHERE clauses to test whether a value is NULL."},
+  {ch:3,t:"Alias (AS keyword)",d:"A temporary name assigned to a column or table in a query result for clarity."},
+  {ch:3,t:"Equijoin",d:"A join that compares two columns for equality using the = operator."},
+  // Ch 4 — Database Design
+  {ch:4,t:"Entity-relationship (ER) model",d:"A high-level representation of data requirements that ignores implementation details."},
+  {ch:4,t:"Entity",d:"A person, place, product, concept, or activity represented in a data model."},
+  {ch:4,t:"Relationship",d:"A statement about two entities in a data model."},
+  {ch:4,t:"Attribute",d:"A descriptive property of an entity."},
+  {ch:4,t:"Reflexive relationship",d:"A relationship that relates an entity to itself."},
+  {ch:4,t:"ER diagram",d:"A visual depiction of entities, relationships, and attributes in an entity-relationship model."},
+  {ch:4,t:"Glossary (data dictionary / repository)",d:"Documents additional detail about entities, relationships, and attributes in text format."},
+  {ch:4,t:"Entity type",d:"A set of similar things — e.g., all employees in a company."},
+  {ch:4,t:"Relationship type",d:"A set of related entity pairs — e.g., Employee-Manages-Department."},
+  {ch:4,t:"Attribute type",d:"A set of values — e.g., all employee salaries."},
+  {ch:4,t:"Entity instance",d:"An individual thing within an entity type — e.g., the specific employee Sam Snead."},
+  {ch:4,t:"Relationship instance",d:"A specific statement about entity instances — e.g., 'Maria Rodriguez manages Sales.'"},
+  {ch:4,t:"Attribute instance",d:"An individual value within an attribute type — e.g., the salary $35,000."},
+  {ch:4,t:"Conceptual design",d:"Develops an ER model capturing data requirements while ignoring implementation details."},
+  {ch:4,t:"Logical design",d:"Converts the ER model into tables, columns, and keys for a specific database system."},
+  {ch:4,t:"Physical design",d:"Adds indexes and specifies how tables are organized on storage media."},
+  {ch:4,t:"Cardinality",d:"Describes how many instances of one entity relate to instances of another: one-to-one, one-to-many, or many-to-many."},
+  {ch:4,t:"Total participation",d:"Every instance of an entity must participate in a relationship (mandatory)."},
+  {ch:4,t:"Partial participation",d:"Some instances of an entity may optionally not participate in a relationship."},
+  {ch:4,t:"Strong entity",d:"An entity with a primary key that uniquely identifies each instance independently, without relying on another entity."},
+  {ch:4,t:"Weak entity",d:"An entity that depends on a related strong entity for identification — has no independent primary key."},
+  {ch:4,t:"Identifying relationship",d:"A relationship that connects a weak entity to its identifying (strong) entity."},
+  {ch:4,t:"Supertype",d:"A general entity type that is divided into one or more specialized subtypes."},
+  {ch:4,t:"Subtype",d:"A specialized entity type that inherits all attributes from its supertype plus has its own unique attributes."},
+  {ch:4,t:"First normal form (1NF)",d:"Every cell contains exactly one value, rows are uniquely identified, and there are no repeating groups."},
+  {ch:4,t:"Second normal form (2NF)",d:"The table is in 1NF and every non-key column is fully functionally dependent on the entire primary key."},
+  {ch:4,t:"Third normal form (3NF)",d:"The table is in 2NF and no non-key column is transitively dependent on the primary key."},
+  {ch:4,t:"Functional dependency",d:"Column A functionally determines column B when each value of A is associated with exactly one value of B."},
+  {ch:4,t:"Transitive dependency",d:"A non-key column depends on another non-key column, which in turn depends on the primary key."},
+  {ch:4,t:"Boyce-Codd normal form (BCNF)",d:"A stricter version of 3NF — every determinant in the table must be a candidate key."},
+  {ch:4,t:"Candidate key",d:"Any column or combination of columns that could serve as a primary key — unique and non-null."},
+  {ch:4,t:"Surrogate key",d:"An artificial primary key (usually auto-incremented) with no business meaning, added to uniquely identify rows."},
+  // Ch 5 — Indexes
+  {ch:5,t:"Table structure",d:"A scheme for organizing rows in blocks on storage media."},
+  {ch:5,t:"Heap table",d:"A table structure in which no order is imposed on rows — rows are stored in insertion order."},
+  {ch:5,t:"Sorted table",d:"A table structure where rows are physically ordered by a designated sort column."},
+  {ch:5,t:"Hash table",d:"A table structure where rows are assigned to buckets based on the result of a hash function."},
+  {ch:5,t:"Bucket",d:"A block or group of blocks that contains rows in a hash table."},
+  {ch:5,t:"Hash key",d:"A column or group of columns — usually the primary key — used as input to the hash function."},
+  {ch:5,t:"Hash function",d:"Computes the bucket number that should contain a given row from the hash key value."},
+  {ch:5,t:"Modulo function",d:"A simple hash function that assigns rows to buckets using the remainder of integer division."},
+  {ch:5,t:"Dynamic hash function",d:"Automatically allocates more blocks, creates additional buckets, and redistributes rows as the table grows."},
+  {ch:5,t:"Table clusters (multi-tables)",d:"Interleave rows of two or more tables in the same storage area, improving join performance."},
+  {ch:5,t:"Cluster key",d:"A column available in all interleaved tables that determines how rows from multiple tables are co-located."},
+  {ch:5,t:"Single-level index",d:"A file containing column values along with pointers to the rows containing each value."},
+  {ch:5,t:"Multi-column index",d:"An index where each entry is a composite of values from multiple indexed columns."},
+  {ch:5,t:"Table scan",d:"A database operation that reads table blocks directly, without accessing an index — checks every row."},
+  {ch:5,t:"Index scan",d:"A database operation that reads index blocks sequentially to locate the needed table blocks."},
+  {ch:5,t:"Hit ratio (filter factor / selectivity)",d:"The percentage of table rows selected by a query; helps the optimizer choose between an index scan and a table scan."},
+  {ch:5,t:"Binary search",d:"A search that repeatedly splits the index in half until it finds the target entry — efficient on sorted data."},
+  {ch:5,t:"Primary index (clustering index)",d:"An index built on the sort column of a sorted table."},
+  {ch:5,t:"Secondary index (nonclustering index)",d:"An index that is not on the sort column — can exist on any column."},
+  {ch:5,t:"Dense index",d:"An index that contains one entry for every row in the table."},
+  {ch:5,t:"Sparse index",d:"An index that contains one entry for every table block, not every individual row."},
+];
+
+let mode = 'flash';
+let chFilter = 'all';
+let deck = [], idx = 0, showDef = false;
+let correct = 0, wrong = 0, streak = 0;
+let quizQ = null, quizDone = false, selIdx = null;
+let mItems = [], mDone = new Set(), mSel = null, mErr = new Set();
+
+const shuffle = a => { for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+
+function filtered() {
+  return chFilter === 'all' ? [...TERMS] : TERMS.filter(t => t.ch === chFilter);
+}
+
+function setMode(m) {
+  mode = m;
+  ['flash','quiz','match'].forEach(x => document.getElementById('tab-'+x).classList.toggle('active', x===m));
+  reset();
+}
+
+function setChapter(ch, btn) {
+  chFilter = ch;
+  document.querySelectorAll('.ch-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  reset();
+}
+
+function reset() {
+  deck = shuffle(filtered());
+  idx = 0; showDef = false; correct = 0; wrong = 0; streak = 0;
+  quizQ = null; quizDone = false; selIdx = null;
+  mItems = []; mDone = new Set(); mSel = null; mErr = new Set();
+  updateStats();
+  render();
+}
+
+function updateStats() {
+  document.getElementById('s-total').textContent = correct + wrong;
+  document.getElementById('s-correct').textContent = correct;
+  document.getElementById('s-wrong').textContent = wrong;
+  document.getElementById('s-streak').textContent = streak;
+}
+
+function render() {
+  const area = document.getElementById('main-area');
+  if (mode === 'flash') area.innerHTML = renderFlash();
+  else if (mode === 'quiz') area.innerHTML = renderQuiz();
+  else area.innerHTML = renderMatch();
+}
+
+/* ───── FLASHCARDS ───── */
+function renderFlash() {
+  if (!deck.length) return '<div class="center">No terms for this selection.</div>';
+  const card = deck[idx];
+  const pct = (idx / deck.length) * 100;
+  return `
+    <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
+    <div class="prog-text">${idx + 1} of ${deck.length} &nbsp;·&nbsp; Chapter ${card.ch}</div>
+    <div class="flashcard" onclick="flip()">
+      <span class="chip">Chapter ${card.ch}</span>
+      <div class="term">${card.t}</div>
+      ${showDef ? `<div class="divider"></div><div class="def-label">Definition</div><div class="definition">${card.d}</div>` : ''}
+      <span class="flip-hint">${showDef ? 'tap to hide ▲' : 'tap to reveal ▼'}</span>
+    </div>
+    <div class="btn-row">
+      <button class="btn" onclick="prev()">← Prev</button>
+      <button class="btn red" onclick="mark(false)" ${!showDef?'disabled':''}>✗ Missed</button>
+      <button class="btn green" onclick="mark(true)" ${!showDef?'disabled':''}>✓ Got it</button>
+      <button class="btn" onclick="next()">Next →</button>
+    </div>
+    <div class="btn-row"><button class="btn ghost" onclick="reset()">⟳ Shuffle &amp; Restart</button></div>
+  `;
+}
+
+function flip() { showDef = !showDef; render(); }
+function prev() { showDef=false; idx=(idx-1+deck.length)%deck.length; render(); }
+function next() { showDef=false; idx=(idx+1)%deck.length; render(); }
+function mark(ok) {
+  if (ok) { correct++; streak++; } else { wrong++; streak=0; }
+  updateStats(); next();
+}
+
+/* ───── QUIZ ───── */
+function buildQ() {
+  const pool = filtered();
+  if (pool.length < 4) return null;
+  const ci = Math.floor(Math.random() * pool.length);
+  const c = pool[ci];
+  const others = shuffle(pool.filter((_,i) => i!==ci)).slice(0,3);
+  const opts = shuffle([c,...others]);
+  const type = Math.random() > .5 ? 'td' : 'dt';
+  return { c, opts, type };
+}
+
+function renderQuiz() {
+  if (filtered().length < 4) return '<div class="center">Select more chapters — need at least 4 terms for quiz mode.</div>';
+  if (!quizQ) quizQ = buildQ();
+  const q = quizQ;
+  const qText = q.type === 'td'
+    ? `What is the definition of: <strong>${q.c.t}</strong>?`
+    : `Which term matches this definition?<br><em>${q.c.d}</em>`;
+  const key = q.type === 'td' ? 'd' : 't';
+  const opts = q.opts.map((o,i) => {
+    let cls = 'q-opt';
+    let dis = '';
+    if (quizDone) {
+      dis = 'disabled';
+      if (o === q.c) cls += ' correct';
+      else if (i === selIdx) cls += ' wrong';
+    }
+    return `<button class="${cls}" ${dis} onclick="answer(${i})">${o[key]}</button>`;
+  }).join('');
+  let fb = '';
+  if (quizDone) {
+    const ok = selIdx !== null && q.opts[selIdx] === q.c;
+    fb = `<div class="feedback ${ok?'c':'w'}">${ok ? '✓ Correct!' : `✗ Answer: <strong>${q.c[key]}</strong>`}</div>`;
+  }
+  return `
+    <div class="prog-text">Chapter ${q.c.ch} &nbsp;·&nbsp; ${correct+wrong} answered</div>
+    <div class="quiz-card">
+      <div class="quiz-q">${qText}</div>
+      <div class="quiz-options">${opts}</div>
+      ${fb}
+    </div>
+    <div class="spacer"></div>
+    ${quizDone ? `<div class="btn-row"><button class="btn primary" onclick="nextQ()">Next question →</button></div>` : ''}
+    <div class="btn-row"><button class="btn ghost" onclick="reset()">⟳ New set</button></div>
+  `;
+}
+
+function answer(i) {
+  if (quizDone) return;
+  quizDone = true; selIdx = i;
+  if (quizQ.opts[i] === quizQ.c) { correct++; streak++; } else { wrong++; streak=0; }
+  updateStats(); render();
+}
+function nextQ() { quizDone=false; selIdx=null; quizQ=buildQ(); render(); }
+
+/* ───── MATCHING ───── */
+function renderMatch() {
+  const pool = filtered();
+  if (pool.length < 4) return '<div class="center">Select more chapters — need at least 4 terms.</div>';
+  if (!mItems.length) {
+    mItems = shuffle(pool).slice(0, 8);
+    mDone = new Set(); mSel = null; mErr = new Set();
+  }
+
+  const terms = mItems.map((m,i) => ({label: m.t, i, side:'t'}));
+  const defs  = shuffle(mItems.map((m,i) => ({label: m.d.length>95?m.d.slice(0,92)+'…':m.d, i, side:'d'})));
+
+  const allDone = mDone.size === mItems.length;
+
+  const tCells = terms.map(({label,i}) => {
+    const done = mDone.has(i+'t');
+    const sel = mSel && mSel.side==='t' && mSel.i===i;
+    const err = mErr.has('t'+i);
+    const cls = `m-item ${done?'done':''} ${sel?'sel':''} ${err?'err':''}`;
+    return `<button class="${cls}" ${done?'disabled':''} onclick="pickMatch('t',${i})">${label}</button>`;
+  }).join('');
+
+  const dCells = defs.map(({label,i}) => {
+    const done = mDone.has(i+'d');
+    const sel = mSel && mSel.side==='d' && mSel.i===i;
+    const err = mErr.has('d'+i);
+    const cls = `m-item ${done?'done':''} ${sel?'sel':''} ${err?'err':''}`;
+    return `<button class="${cls}" ${done?'disabled':''} onclick="pickMatch('d',${i})">${label}</button>`;
+  }).join('');
+
+  let html = `<div class="match-instructions">Select a term, then its matching definition</div>`;
+  html += `<div class="prog-text">${mDone.size/2} of ${mItems.length} matched</div>`;
+  html += `<div class="match-cols"><div class="match-col-label">Terms</div><div class="match-col-label">Definitions</div>${tCells}${dCells}</div>`;
+
+  if (allDone) {
+    html += `<div class="spacer"></div><div style="text-align:center;"><p style="color:var(--green);font-size:16px;font-weight:700;margin-bottom:12px;">🎉 All matched!</p><button class="btn primary" onclick="newMatch()">New round →</button></div>`;
+  } else {
+    html += `<div class="btn-row"><button class="btn ghost" onclick="newMatch()">⟳ New set</button></div>`;
+  }
+  return html;
+}
+
+function pickMatch(side, i) {
+  if (!mSel) { mSel={side,i}; mErr=new Set(); render(); return; }
+  if (mSel.side === side) { mSel={side,i}; render(); return; }
+  const ti = side==='t'?i:mSel.i;
+  const di = side==='d'?i:mSel.i;
+  if (ti === di) {
+    mDone.add(ti+'t'); mDone.add(di+'d');
+    correct++; streak++;
+  } else {
+    mErr = new Set(['t'+ti,'d'+di]);
+    wrong++; streak=0;
+    setTimeout(()=>{ mErr=new Set(); render(); }, 400);
+  }
+  mSel = null;
+  updateStats(); render();
+}
+
+function newMatch() { mItems=[]; render(); }
+
+// Boot
+reset();
+</script>
+</body>
+</html>
