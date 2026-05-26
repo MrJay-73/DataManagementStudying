@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<title>D426 Dungeon — WGU Data Management</title>
+<style>
+:root {
+  --bg:#0a0c12;--bg2:#111520;--bg3:#181d2e;--bg4:#1f2640;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --text:#e8eaf6;--muted:#7986b0;--hint:#4a5278;
+  --gold:#f6c744;--gold-bg:rgba(246,199,68,0.12);
+  --red:#ef4444;--red-bg:rgba(239,68,68,0.13);
+  --green:#22c55e;--green-bg:rgba(34,197,94,0.13);
+  --blue:#60a5fa;--blue-bg:rgba(96,165,250,0.12);
+  --purple:#a78bfa;--purple-bg:rgba(167,139,250,0.12);
+  --orange:#fb923c;
+  --r:12px;--rs:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{min-height:100dvh;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overflow-x:hidden}
+.screen{display:none;min-height:100dvh;flex-direction:column}
+.screen.active{display:flex}
+
+/* ── MAP ── */
+#map-screen{padding:0 0 40px}
+.map-header{background:var(--bg2);border-bottom:1px solid var(--border2);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:10}
+.map-header h1{font-size:15px;font-weight:700;letter-spacing:.5px;color:var(--gold)}
+.hud{display:flex;align-items:center;gap:12px}
+.hud-gold{display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:var(--gold)}
+.map-body{padding:20px 16px 0;max-width:560px;margin:0 auto;width:100%}
+.map-title{font-size:22px;font-weight:800;margin-bottom:4px}
+.map-sub{font-size:13px;color:var(--muted);margin-bottom:24px}
+.chapter-nodes{display:flex;flex-direction:column}
+.node-connector{width:2px;height:24px;margin-left:27px;background:var(--border2)}
+.node-connector.done{background:var(--green)}
+.node-btn{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:var(--r);border:1px solid var(--border2);background:var(--bg2);cursor:pointer;width:100%;text-align:left;transition:all .2s;position:relative;overflow:hidden}
+.node-btn:hover:not(:disabled){border-color:var(--blue);transform:translateY(-1px)}
+.node-btn:disabled{opacity:.4;cursor:default;transform:none}
+.node-btn.done{border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.05)}
+.node-btn.active-node{border-color:var(--gold);box-shadow:0 0 20px rgba(246,199,68,.15)}
+.node-btn.boss-node{border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.05)}
+.node-btn.boss-node.active-node{box-shadow:0 0 24px rgba(239,68,68,.25)}
+.node-icon{width:44px;height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;border:1px solid var(--border2)}
+.node-btn.done .node-icon{background:var(--green-bg);border-color:rgba(34,197,94,.3)}
+.node-btn.active-node:not(.boss-node) .node-icon{background:var(--gold-bg);border-color:rgba(246,199,68,.4)}
+.node-btn.boss-node .node-icon{background:var(--red-bg);border-color:rgba(239,68,68,.4)}
+.node-info{flex:1;min-width:0}
+.node-name{font-size:15px;font-weight:600;margin-bottom:3px}
+.node-desc{font-size:12px;color:var(--muted);line-height:1.4}
+.node-badge{font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;flex-shrink:0}
+.bdone{background:var(--green-bg);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.bnext{background:var(--gold-bg);color:var(--gold);border:1px solid rgba(246,199,68,.3)}
+.blocked{background:var(--bg3);color:var(--hint);border:1px solid var(--border)}
+.bboss{background:var(--red-bg);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.shop-row{margin-top:28px}
+.shop-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:var(--r);border:1px solid rgba(246,199,68,.3);background:var(--gold-bg);color:var(--gold);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.shop-btn:hover{background:rgba(246,199,68,.2)}
+.hp-row-map{display:flex;align-items:center;gap:6px;margin-bottom:20px}
+.hp-row-map .hp-label{font-size:13px;color:var(--muted);font-weight:500}
+.hp-pip{font-size:18px}
+.hp-pip.empty{filter:grayscale(1);opacity:.25}
+
+/* ── BATTLE ── */
+#battle-screen{padding:0}
+.battle-header{background:var(--bg2);border-bottom:1px solid var(--border2);padding:12px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10}
+.quit-btn{background:none;border:1px solid rgba(239,68,68,.35);color:var(--red);padding:6px 12px;border-radius:var(--rs);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;flex-shrink:0}
+.quit-btn:hover{background:var(--red-bg)}
+.battle-title{flex:1;font-size:14px;font-weight:700;color:var(--text);text-align:center}
+.battle-gold{display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600;color:var(--gold);flex-shrink:0}
+.battle-body{padding:14px 16px 32px;max-width:580px;margin:0 auto;width:100%;flex:1;display:flex;flex-direction:column;gap:12px}
+
+/* enemy */
+.enemy-card{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:16px 18px;text-align:center;position:relative}
+.enemy-card.boss-card{border-color:rgba(239,68,68,.4)}
+.enemy-sprite{font-size:48px;line-height:1;margin-bottom:8px;display:block}
+.enemy-name{font-size:15px;font-weight:700;margin-bottom:10px}
+.enemy-bar-row{display:flex;align-items:center;gap:8px}
+.elabel{font-size:11px;color:var(--muted);white-space:nowrap}
+.ebar{flex:1;height:6px;background:var(--bg3);border-radius:99px;overflow:hidden}
+.ebar-fill{height:100%;background:linear-gradient(90deg,var(--red),#f97316);border-radius:99px;transition:width .4s}
+.q-counter{position:absolute;top:12px;right:14px;font-size:11px;color:var(--hint);background:var(--bg3);padding:3px 8px;border-radius:999px}
+.enemy-intent{font-size:12px;color:var(--orange);margin-top:8px;font-weight:500}
+
+/* player hp */
+.player-hp-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.php-label{font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0}
+.php-hearts{display:flex;gap:4px;flex-wrap:wrap}
+.php-heart{font-size:17px;transition:all .25s}
+.php-heart.empty{filter:grayscale(1);opacity:.22;transform:scale(.85)}
+.status-pills{display:flex;gap:6px;flex-wrap:wrap}
+.status-pill{font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px}
+.pill-shield{background:var(--blue-bg);color:var(--blue);border:1px solid rgba(96,165,250,.3)}
+
+/* items */
+.items-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.items-label{font-size:11px;color:var(--hint);font-weight:500;flex-shrink:0}
+.item-slot{display:flex;align-items:center;gap:5px;padding:7px 11px;border-radius:var(--rs);border:1px solid var(--border2);background:var(--bg3);font-size:12px;font-weight:500;color:var(--text);cursor:pointer;transition:all .15s;user-select:none}
+.item-slot:hover{border-color:var(--gold);color:var(--gold)}
+.item-slot:active{transform:scale(.95)}
+.item-slot.used{opacity:.28;cursor:default;pointer-events:none}
+.item-count{font-size:10px;color:var(--gold);font-weight:700;background:var(--gold-bg);border-radius:99px;padding:1px 5px}
+.no-items-msg{font-size:12px;color:var(--hint)}
+
+/* question */
+.question-card{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:18px 16px}
+.q-meta{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;font-weight:600}
+.q-text{font-size:15px;font-weight:500;color:var(--text);line-height:1.65}
+.q-text em{color:var(--muted);font-style:italic;font-weight:400}
+.q-text strong{color:var(--blue)}
+
+/* options */
+.options{display:flex;flex-direction:column;gap:9px}
+.opt-btn{padding:13px 15px;border-radius:var(--rs);border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-size:13px;cursor:pointer;text-align:left;line-height:1.5;transition:all .15s;position:relative;overflow:hidden}
+.opt-btn::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:transparent;transition:background .15s}
+.opt-btn:hover:not(:disabled):not(.elim){border-color:var(--blue);background:var(--blue-bg)}
+.opt-btn:hover:not(:disabled):not(.elim)::before{background:var(--blue)}
+.opt-btn.correct{border-color:var(--green)!important;background:var(--green-bg)!important;color:var(--green)}
+.opt-btn.correct::before{background:var(--green)!important}
+.opt-btn.wrong{border-color:var(--red)!important;background:var(--red-bg)!important;color:#fca5a5}
+.opt-btn.wrong::before{background:var(--red)!important}
+.opt-btn.elim{opacity:.18;cursor:default;pointer-events:none;text-decoration:line-through}
+.opt-btn:disabled{cursor:default}
+.opt-label{font-size:10px;font-weight:700;color:var(--hint);margin-right:8px;letter-spacing:.05em}
+
+/* feedback */
+.feedback-bar{padding:12px 15px;border-radius:var(--rs);font-size:13px;font-weight:500;line-height:1.5}
+.feedback-bar.c{background:var(--green-bg);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.feedback-bar.w{background:var(--red-bg);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}
+.next-btn{padding:14px;border-radius:var(--r);background:var(--blue);color:#fff;font-size:14px;font-weight:600;border:none;cursor:pointer;transition:all .15s;width:100%}
+.next-btn:hover{background:#3b82f6;transform:translateY(-1px)}
+.next-btn.boss-next{background:var(--red)}
+
+/* ── Timer bar ── */
+.timer-wrap{display:flex;align-items:center;gap:10px}
+.timer-bar-bg{flex:1;height:6px;background:var(--bg3);border-radius:99px;overflow:hidden}
+.timer-bar-fill{height:100%;border-radius:99px;transition:width .1s linear,background .5s}
+.timer-label{font-size:12px;font-weight:700;min-width:28px;text-align:right;transition:color .3s}
+.speed-bonus{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(246,199,68,.2);color:var(--gold);border:1px solid rgba(246,199,68,.35);white-space:nowrap}
+
+/* ── Shop discount badge ── */
+.discount-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(239,68,68,.2);color:#fca5a5;border:1px solid rgba(239,68,68,.35)}
+.si-price-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.si-price-orig{font-size:12px;color:var(--hint);text-decoration:line-through}
+.shop-visit-banner{background:rgba(246,199,68,.08);border:1px solid rgba(246,199,68,.2);border-radius:var(--rs);padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--gold);font-weight:500;text-align:center;line-height:1.5}
+.continue-btn{display:flex;align-items:center;justify-content:center;width:100%;padding:14px;border-radius:var(--r);background:var(--blue);color:#fff;font-size:14px;font-weight:600;border:none;cursor:pointer;transition:all .15s;margin-top:20px}
+.continue-btn:hover{background:#3b82f6}
+
+/* ── SHOP ── */
+#shop-screen{padding:0}
+.shop-header{background:var(--bg2);border-bottom:1px solid var(--border2);padding:14px 16px;display:flex;align-items:center;gap:12px}
+.back-btn{background:none;border:1px solid var(--border2);color:var(--muted);padding:6px 12px;border-radius:var(--rs);font-size:12px;cursor:pointer;transition:all .15s}
+.back-btn:hover{color:var(--text)}
+.shop-header h2{flex:1;font-size:16px;font-weight:700;color:var(--gold)}
+.shop-gold{display:flex;align-items:center;gap:5px;font-size:14px;font-weight:700;color:var(--gold)}
+.shop-body{padding:16px;max-width:580px;margin:0 auto;width:100%}
+.shop-desc{font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.5}
+.shop-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.shop-item{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:16px 14px;display:flex;flex-direction:column;gap:7px;cursor:pointer;transition:all .2s}
+.shop-item:hover:not(.cant){border-color:var(--gold);transform:translateY(-2px)}
+.shop-item.cant{opacity:.38;cursor:default;transform:none}
+.si-icon{font-size:30px;line-height:1}
+.si-name{font-size:14px;font-weight:700}
+.si-desc{font-size:12px;color:var(--muted);line-height:1.5;flex:1}
+.si-price{display:flex;align-items:center;gap:4px;font-size:13px;font-weight:700;color:var(--gold)}
+.si-owned{font-size:11px;color:var(--muted);background:var(--bg3);border-radius:999px;padding:2px 8px;align-self:flex-start}
+
+/* ── RESULTS / DEATH ── */
+#result-screen,#death-screen{align-items:center;justify-content:center;padding:32px 16px}
+.result-card{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:32px 24px;text-align:center;max-width:420px;width:100%}
+.death-card{background:linear-gradient(135deg,rgba(239,68,68,.08),var(--bg2));border:1px solid rgba(239,68,68,.3);border-radius:var(--r);padding:32px 24px;text-align:center;max-width:420px;width:100%}
+.res-emoji{font-size:64px;display:block;margin-bottom:16px}
+.res-title{font-size:26px;font-weight:800;margin-bottom:6px}
+.res-sub{font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.5}
+.res-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px}
+.rs{background:var(--bg3);border-radius:var(--rs);padding:12px 8px;text-align:center}
+.rs-num{font-size:22px;font-weight:800;color:var(--gold)}
+.rs-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-top:2px}
+.res-btn{width:100%;padding:14px;border-radius:var(--r);background:var(--blue);color:#fff;font-size:15px;font-weight:700;border:none;cursor:pointer;transition:all .2s}
+.res-btn:hover{background:#3b82f6}
+
+/* ── START ── */
+#start-screen{align-items:center;justify-content:center;padding:32px 16px;text-align:center}
+.start-card{max-width:400px;width:100%}
+.start-logo{font-size:72px;margin-bottom:16px;animation:float 3s ease-in-out infinite;display:block}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.start-title{font-size:28px;font-weight:900;color:var(--gold);margin-bottom:4px;letter-spacing:-1px}
+.start-sub{font-size:14px;color:var(--muted);margin-bottom:6px}
+.start-tagline{font-size:13px;color:var(--hint);margin-bottom:32px;line-height:1.6}
+.start-btn{width:100%;padding:16px;border-radius:var(--r);background:var(--gold);color:#0a0c12;font-size:16px;font-weight:800;border:none;cursor:pointer;transition:all .2s;margin-bottom:10px}
+.start-btn:hover{background:#eab308;transform:translateY(-2px)}
+.start-features{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:24px}
+.feat{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rs);padding:12px;font-size:12px;color:var(--muted);line-height:1.4}
+.feat-icon{font-size:20px;margin-bottom:4px}
+
+/* ── toast / modal ── */
+.toast{position:fixed;top:70px;left:50%;transform:translateX(-50%) translateY(-20px);background:var(--bg3);border:1px solid var(--border2);border-radius:var(--rs);padding:10px 18px;font-size:13px;font-weight:500;color:var(--text);z-index:100;opacity:0;pointer-events:none;transition:all .3s;white-space:nowrap;max-width:90vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.good{border-color:rgba(34,197,94,.4);color:var(--green);background:var(--green-bg)}
+.toast.bad{border-color:rgba(239,68,68,.4);color:var(--red);background:var(--red-bg)}
+.toast.info{border-color:rgba(167,139,250,.4);color:var(--purple);background:var(--purple-bg)}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:50;align-items:center;justify-content:center;padding:16px}
+.overlay.active{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r);padding:24px;max-width:360px;width:100%;text-align:center}
+.modal h3{font-size:18px;font-weight:700;margin-bottom:8px;color:var(--gold)}
+.modal p{font-size:14px;color:var(--muted);margin-bottom:20px;line-height:1.6}
+.modal-btns{display:flex;gap:10px}
+.mbtn{flex:1;padding:12px;border-radius:var(--rs);font-size:14px;font-weight:600;cursor:pointer;border:none;transition:all .15s}
+.mbtn.p{background:var(--blue);color:#fff}
+.mbtn.p:hover{background:#3b82f6}
+.mbtn.s{background:var(--bg3);color:var(--text);border:1px solid var(--border2)}
+.mbtn.s:hover{background:var(--bg4)}
+.mbtn.danger{background:var(--red-bg);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.mbtn.danger:hover{background:rgba(239,68,68,.25)}
+</style>
+</head>
+<body>
+<div class="toast" id="toast"></div>
+<div class="overlay" id="overlay"><div class="modal"><h3 id="m-title"></h3><p id="m-body"></p><div class="modal-btns" id="m-btns"></div></div></div>
+
+<!-- START -->
+<div class="screen active" id="start-screen">
+  <div class="start-card">
+    <span class="start-logo">🗡️</span>
+    <div class="start-title">D426 DUNGEON</div>
+    <div class="start-sub">WGU Data Management Foundations</div>
+    <div class="start-tagline">A roguelike quiz adventure.<br>Battle through 5 chapters. Defeat the Final Boss.<br>Questions are exam-level hard. Don't die.</div>
+    <button class="start-btn" onclick="startGame()">⚔️ Begin Dungeon Run</button>
+    <div class="start-features">
+      <div class="feat"><div class="feat-icon">❤️</div>Lose HP on wrong answers</div>
+      <div class="feat"><div class="feat-icon">🪙</div>Earn gold for correct answers</div>
+      <div class="feat"><div class="feat-icon">🛒</div>Buy lifelines at the shop</div>
+      <div class="feat"><div class="feat-icon">💀</div>Boss tests all chapters</div>
+    </div>
+  </div>
+</div>
+
+<!-- MAP -->
+<div class="screen" id="map-screen">
+  <div class="map-header">
+    <h1>🗡️ D426 DUNGEON</h1>
+    <div class="hud">
+      <div class="hud-gold">🪙 <span id="hud-gold">0</span></div>
+    </div>
+  </div>
+  <div class="map-body">
+    <div class="map-title">The Dungeon Map</div>
+    <div class="map-sub">Clear all 5 floors to unlock the Final Boss</div>
+    <div class="hp-row-map" id="map-hp-row"></div>
+    <div class="chapter-nodes" id="chapter-nodes"></div>
+    <div class="shop-row">
+      <button class="shop-btn" onclick="openMapShop()">🛒 Item Shop &nbsp;·&nbsp; <span id="shop-gold-display">0</span> 🪙 available</button>
+    </div>
+  </div>
+</div>
+
+<!-- BATTLE -->
+<div class="screen" id="battle-screen">
+  <div class="battle-header">
+    <button class="quit-btn" onclick="confirmQuit()">✕ Quit Run</button>
+    <div class="battle-title" id="battle-title">Chapter 1</div>
+    <div class="battle-gold">🪙 <span id="battle-gold">0</span></div>
+  </div>
+  <div class="battle-body" id="battle-body"></div>
+</div>
+
+<!-- SHOP -->
+<div class="screen" id="shop-screen">
+  <div class="shop-header">
+    <h2>🛒 Item Shop</h2>
+    <div class="shop-gold">🪙 <span id="shop-gold">0</span></div>
+  </div>
+  <div class="shop-body">
+    <div class="shop-visit-banner" id="shop-banner"></div>
+    <div class="shop-grid" id="shop-grid"></div>
+    <button class="continue-btn" id="shop-continue-btn" onclick="resumeFromShop()">⚔️ Continue Run</button>
+  </div>
+</div>
+
+<!-- RESULT -->
+<div class="screen" id="result-screen"><div class="result-card" id="result-card"></div></div>
+
+<!-- DEATH -->
+<div class="screen" id="death-screen"><div class="death-card" id="death-card"></div></div>
+
+<script>
+// ═══════════════════════════════════════
+//  TERMS  (each has: ch, t=term, d=def,
+//   distractors = 3 plausible wrong defs,
+//   termDistr  = 3 plausible wrong terms)
+// ═══════════════════════════════════════
+const TERMS = [
+/* ─── CH 1 ─── */
+{ch:1,t:"Data",d:"Raw numeric, textual, visual, or audio information that describes real-world systems.",
+ distractors:["Processed output delivered to end users after computation","A structured set of related tables stored on disk","Software that translates user requests into file-system commands"],
+ termDistr:["Information","Database","Metadata"]},
+
+{ch:1,t:"Database",d:"A collection of data in a structured format stored on a computer system.",
+ distractors:["A query language used to retrieve and manipulate records","Software that enforces user access and data consistency","A single flat file containing comma-separated records"],
+ termDistr:["DBMS","Spreadsheet","Data warehouse"]},
+
+{ch:1,t:"DBMS",d:"Software that reads and writes data in a database while ensuring security, consistency, and availability.",
+ distractors:["A programming interface used solely to display data to end users","A collection of tables organized by a database designer","The physical storage layer that holds raw bytes on disk"],
+ termDistr:["Database","Query processor","Storage manager"]},
+
+{ch:1,t:"Query",d:"A command sent to a database that retrieves, inserts, updates, or deletes data.",
+ distractors:["A stored procedure that runs automatically on a schedule","A constraint that enforces allowable column values","A high-level schema describing entity relationships"],
+ termDistr:["Transaction","Statement","View"]},
+
+{ch:1,t:"Query language",d:"A specialized programming language designed specifically for interacting with database systems.",
+ distractors:["A general-purpose language like Java used to build database applications","A markup language that structures web-based database reports","A scripting language used by database administrators for backups"],
+ termDistr:["SQL","Procedural language","Scripting language"]},
+
+{ch:1,t:"Database administrator",d:"The role responsible for securing the database system against unauthorized users and enforcing access and availability procedures.",
+ distractors:["The role that converts entity-relationship models into physical table designs","The role that develops application software consuming the database","The role that submits ad-hoc queries to generate business reports"],
+ termDistr:["Database designer","Database programmer","Database user"]},
+
+{ch:1,t:"Database designer",d:"The role that determines the format of each data element and overall database structure, balancing storage, response time, and data rules.",
+ distractors:["The role responsible for user authentication and access-control policies","The role that writes stored procedures and application-layer code","The role that runs daily reports and submits queries via an application"],
+ termDistr:["Database administrator","Database programmer","Database user"]},
+
+{ch:1,t:"Transaction",d:"A group of queries that must be entirely completed or entirely rejected — partial execution causes inconsistent data.",
+ distractors:["A single SELECT statement that retrieves rows from one table","A scheduled backup operation that copies database files to off-site storage","A constraint that ensures referential integrity between two tables"],
+ termDistr:["Query","Batch job","Stored procedure"]},
+
+{ch:1,t:"Query processor",d:"The DBMS component that interprets queries, creates an execution plan, and returns results to the calling application.",
+ distractors:["The component that writes changed data blocks to physical storage media","The component that maintains a log of all committed transactions","The component that assigns user privileges and enforces role-based access"],
+ termDistr:["Storage manager","Transaction manager","Log manager"]},
+
+{ch:1,t:"Query optimization",d:"The process by which the query processor selects the most efficient execution strategy for a given query.",
+ distractors:["Rewriting application-layer code to reduce the number of round trips to the server","Compressing table data to reduce physical storage requirements on disk","Adding indexes after profiling slow queries in a production environment"],
+ termDistr:["Index tuning","Query rewriting","Cost estimation"]},
+
+{ch:1,t:"Storage manager",d:"The DBMS component that translates query processor instructions into low-level file-system commands to read or write data.",
+ distractors:["The component that parses SQL syntax and builds a logical query plan","The component that serializes concurrent transactions to prevent conflicts","The component that maintains metadata about tables, columns, and indexes"],
+ termDistr:["Query processor","Transaction manager","Catalog manager"]},
+
+{ch:1,t:"Transaction manager",d:"The DBMS component that ensures transactions are properly executed, maintaining atomicity and consistency.",
+ distractors:["The component that converts physical row addresses into index pointers","The component that translates SQL into low-level file-system read/write calls","The component that parses and optimizes incoming SQL statements"],
+ termDistr:["Storage manager","Query processor","Lock manager"]},
+
+{ch:1,t:"Log",d:"A file maintained by the DBMS containing a complete sequential record of all inserts, updates, and deletes processed.",
+ distractors:["A data structure that maps column values to physical row locations for fast lookup","A directory listing all table names, column names, and index definitions","A temporary workspace the query processor uses during sort operations"],
+ termDistr:["Index","Catalog","Buffer pool"]},
+
+{ch:1,t:"Catalog",d:"A DBMS directory, also called a data dictionary, that stores metadata about tables, columns, indexes, and other database objects.",
+ distractors:["A sequential file recording every data modification for crash recovery","A temporary structure holding intermediate results during query execution","A set of access-control rules defining which users can read or write each table"],
+ termDistr:["Log","Query plan","Access control list"]},
+
+{ch:1,t:"Relational database",d:"A database that stores data in tables composed of rows and columns, with relationships expressed through shared key values.",
+ distractors:["A database that stores data as nested documents with flexible schemas","A database optimized for massive parallel writes using a key-value store","A database that represents data as nodes and edges in a property graph"],
+ termDistr:["Document database","Key-value store","Graph database"]},
+
+{ch:1,t:"SQL",d:"Structured Query Language — the standard language for querying and managing relational databases, including DDL, DML, and DCL statements.",
+ distractors:["A proprietary query language used exclusively by Oracle Database products","A markup language that defines the structure of data exchanged between web services","A scripting language used to automate database server administration tasks"],
+ termDistr:["PL/SQL","XML","Python"]},
+
+{ch:1,t:"NoSQL",d:"A category of non-relational database systems ('not only SQL') optimized for big data, flexible schemas, and horizontal scaling.",
+ distractors:["A relational database extension that adds object-oriented features to SQL tables","A query language standard used when SQL performance is insufficient","A data warehouse architecture designed for analytical reporting at scale"],
+ termDistr:["Object-relational DB","NewSQL","Data mart"]},
+
+{ch:1,t:"CRUD",d:"An acronym for the four fundamental database operations: Create, Read, Update, and Delete.",
+ distractors:["An acronym for the four transaction isolation levels in SQL databases","An acronym describing the four phases of database normalization","An acronym for the four components of DBMS architecture"],
+ termDistr:["ACID","1NF–4NF","DDL/DML/DCL/TCL"]},
+
+{ch:1,t:"Data type",d:"A column attribute that specifies the format and domain of allowable values, such as integer, varchar, or date.",
+ distractors:["A constraint that limits which rows may be inserted based on a logical expression","A schema object that groups related columns under a single reusable definition","A classification of indexes based on whether they are dense or sparse"],
+ termDistr:["CHECK constraint","Domain","Index type"]},
+
+/* ─── CH 2 ─── */
+{ch:2,t:"Primary key",d:"A column or combination of columns whose values uniquely identify every row in a table and cannot be NULL.",
+ distractors:["A column that references the primary key of a parent table to enforce referential integrity","A constraint that ensures column values are unique but allows NULL entries","An index automatically created on the sort column of a physically ordered table"],
+ termDistr:["Foreign key","UNIQUE constraint","Clustering index"]},
+
+{ch:2,t:"Foreign key",d:"A column or group of columns in one table whose values must match an existing primary key value in a referenced table, or be NULL.",
+ distractors:["A column or group of columns that uniquely identifies every row within its own table","A constraint that rejects any value not found in an explicit list of allowed values","An automatically generated surrogate value used when no natural key exists"],
+ termDistr:["Primary key","CHECK constraint","Surrogate key"]},
+
+{ch:2,t:"Referential integrity",d:"The rule that every non-NULL foreign key value must match an existing primary key value in the referenced table.",
+ distractors:["The rule that every column value must conform to its declared data type and length","The rule that no two rows may share identical values across all non-key columns","The rule that every table must have at least one column defined as NOT NULL"],
+ termDistr:["Domain integrity","Entity integrity","Column integrity"]},
+
+{ch:2,t:"NULL",d:"A special marker indicating that a column value is unknown or inapplicable — distinct from zero, empty string, or false.",
+ distractors:["A default placeholder value of zero assigned when no explicit value is provided on insert","An empty string stored when a user submits a form without entering text","A Boolean false value stored in columns with a binary data type"],
+ termDistr:["Zero","Empty string","DEFAULT"]},
+
+{ch:2,t:"INSERT statement",d:"The SQL DML statement that adds one or more new rows to a specified table.",
+ distractors:["The SQL statement that modifies column values in existing rows matching a condition","The SQL statement that permanently removes all rows from a table and its structure","The SQL statement that creates a new table by specifying its columns and constraints"],
+ termDistr:["UPDATE statement","DROP TABLE","CREATE TABLE"]},
+
+{ch:2,t:"UPDATE statement",d:"The SQL DML statement that modifies column values in existing rows that satisfy a WHERE condition.",
+ distractors:["The SQL statement that adds new rows to a table without altering existing rows","The SQL statement that removes rows from a table based on a WHERE condition","The SQL statement that alters the column definitions of an existing table"],
+ termDistr:["INSERT statement","DELETE statement","ALTER TABLE"]},
+
+{ch:2,t:"DELETE statement",d:"The SQL DML statement that removes rows from a table that satisfy a specified WHERE condition.",
+ distractors:["The SQL statement that removes an entire table including its structure and all data","The SQL statement that replaces column values in rows matching a condition","The SQL statement that temporarily suspends rows from appearing in query results"],
+ termDistr:["DROP TABLE","UPDATE statement","TRUNCATE"]},
+
+{ch:2,t:"ALTER TABLE",d:"The SQL DDL statement used to add, modify, rename, or drop columns and constraints on an existing table.",
+ distractors:["The SQL statement that permanently removes a table and all of its rows from the database","The SQL statement that creates a copy of a table's structure without copying its data","The SQL statement that changes the owner or access privileges of a table object"],
+ termDistr:["DROP TABLE","CREATE TABLE AS","GRANT"]},
+
+{ch:2,t:"RESTRICT action",d:"A referential integrity action that rejects any UPDATE or DELETE on a parent row when matching foreign key rows exist in a child table.",
+ distractors:["An action that automatically removes child rows when the referenced parent row is deleted","An action that sets child foreign key columns to NULL when the parent row changes","An action that replaces child foreign key values with their column default when the parent changes"],
+ termDistr:["CASCADE","SET NULL","SET DEFAULT"]},
+
+{ch:2,t:"CASCADE action",d:"A referential integrity action that automatically propagates primary key changes or deletions to all matching foreign key rows in child tables.",
+ distractors:["An action that blocks any modification to a parent row while dependent child rows exist","An action that replaces matching child foreign key values with NULL on parent deletion","An action that replaces matching child foreign key values with the column default on parent deletion"],
+ termDistr:["RESTRICT","SET NULL","SET DEFAULT"]},
+
+{ch:2,t:"SET NULL action",d:"A referential integrity action that sets matching foreign key columns to NULL when the referenced primary key is updated or deleted.",
+ distractors:["An action that prevents deletion of a parent row while child rows reference it","An action that copies the parent row's new primary key value into each matching child row","An action that removes all matching child rows when the parent row is deleted"],
+ termDistr:["RESTRICT","CASCADE","SET DEFAULT"]},
+
+{ch:2,t:"UNIQUE constraint",d:"A constraint that ensures no two rows in a table share the same value in the specified column or combination of columns; allows NULL.",
+ distractors:["A constraint that guarantees no row can store a NULL value in the specified column","A constraint that verifies column values against a Boolean expression at insert or update time","A constraint that links a column's values to the primary key of another table"],
+ termDistr:["NOT NULL constraint","CHECK constraint","Foreign key"]},
+
+{ch:2,t:"CHECK constraint",d:"A constraint that defines a Boolean expression on one or more columns; any INSERT or UPDATE that makes the expression FALSE is rejected.",
+ distractors:["A constraint that ensures column values are distinct across all rows in the table","A constraint that prevents any NULL value from being stored in the column","A constraint that forces column values to match an existing key in another table"],
+ termDistr:["UNIQUE constraint","NOT NULL constraint","Foreign key"]},
+
+{ch:2,t:"NOT NULL constraint",d:"A column constraint that prevents NULL values from being stored in the column, requiring every row to supply an explicit value.",
+ distractors:["A constraint that ensures values in a column are distinct across all table rows","A constraint that validates column values against a user-defined Boolean expression","A constraint that requires column values to reference an existing row in a parent table"],
+ termDistr:["UNIQUE constraint","CHECK constraint","Foreign key"]},
+
+{ch:2,t:"Composite primary key",d:"A primary key formed by combining two or more columns whose combined values uniquely identify each row.",
+ distractors:["A primary key built from a single auto-incremented integer column with no business meaning","A primary key that references values from a parent table to enforce referential integrity","A primary key derived by hashing a combination of column values for fast lookup"],
+ termDistr:["Surrogate key","Foreign key","Hash key"]},
+
+/* ─── CH 3 ─── */
+{ch:3,t:"SELECT statement",d:"The SQL DML statement that retrieves rows from one or more tables, specifying which columns to return and optional filtering, grouping, and sorting.",
+ distractors:["The SQL statement that writes new rows into a table from a VALUES clause or subquery","The SQL statement that modifies existing column values in rows meeting a condition","The SQL statement that creates a virtual table based on a stored query definition"],
+ termDistr:["INSERT statement","UPDATE statement","CREATE VIEW"]},
+
+{ch:3,t:"WHERE clause",d:"An optional clause in a SELECT, UPDATE, or DELETE statement that filters rows by evaluating a condition — only rows where the condition is TRUE are included.",
+ distractors:["A clause that filters groups of rows after aggregation has been applied to them","A clause that specifies the maximum number of rows the result set may contain","A clause that defines the columns used to sort the final result table"],
+ termDistr:["HAVING clause","LIMIT clause","ORDER BY clause"]},
+
+{ch:3,t:"HAVING clause",d:"A clause used with GROUP BY that filters aggregated groups — analogous to WHERE but applied after grouping rather than before.",
+ distractors:["A clause that filters individual rows before any grouping or aggregation takes place","A clause that limits the total number of rows returned by the query","A clause that specifies a secondary sort key when multiple rows share the same primary sort value"],
+ termDistr:["WHERE clause","LIMIT clause","ORDER BY clause"]},
+
+{ch:3,t:"GROUP BY clause",d:"A clause that partitions the result set into groups of rows sharing the same values in specified columns, enabling per-group aggregation.",
+ distractors:["A clause that sorts result rows in ascending or descending order by one or more columns","A clause that combines rows from two tables based on a matching column condition","A clause that restricts the result set to the first N rows after sorting"],
+ termDistr:["ORDER BY clause","JOIN","LIMIT clause"]},
+
+{ch:3,t:"ORDER BY clause",d:"A clause that sorts the final result set by one or more expressions in ascending (ASC, default) or descending (DESC) order.",
+ distractors:["A clause that partitions rows into groups for per-group aggregate calculations","A clause that eliminates duplicate rows from the final result set","A clause that filters rows based on whether they match values in a subquery"],
+ termDistr:["GROUP BY clause","DISTINCT","IN operator"]},
+
+{ch:3,t:"Aggregate function",d:"A function such as COUNT, SUM, AVG, MIN, or MAX that collapses multiple rows into a single summary value.",
+ distractors:["A function that returns a value derived from a single row without consulting other rows","A function that transforms a string value, such as converting case or trimming whitespace","A function that computes the positional rank of a row within a partitioned result set"],
+ termDistr:["Scalar function","String function","Window function"]},
+
+{ch:3,t:"INNER JOIN",d:"A join type that returns only rows where the join condition is satisfied in both participating tables — unmatched rows from either table are excluded.",
+ distractors:["A join type that returns all rows from the left table plus matching rows from the right, with NULLs for unmatched right-side columns","A join type that returns every combination of rows from both tables regardless of any matching condition","A join type that returns all rows from both tables, with NULLs wherever matches are absent"],
+ termDistr:["LEFT JOIN","CROSS JOIN","FULL OUTER JOIN"]},
+
+{ch:3,t:"LEFT JOIN",d:"A join type that returns all rows from the left table and matching rows from the right table; unmatched right-side columns appear as NULL.",
+ distractors:["A join type that returns only the rows where both tables satisfy the join condition","A join type that returns all rows from both tables, placing NULLs where no match exists on either side","A join type that produces the Cartesian product of both tables with no filtering"],
+ termDistr:["INNER JOIN","FULL OUTER JOIN","CROSS JOIN"]},
+
+{ch:3,t:"CROSS JOIN",d:"A join that produces the Cartesian product of two tables — every row of the first table is paired with every row of the second.",
+ distractors:["A join that returns only rows where the join condition matches in both tables","A join that returns all rows from both tables and NULL-fills unmatched positions","A join that links a table to itself using an alias to compare rows within the same table"],
+ termDistr:["INNER JOIN","FULL OUTER JOIN","Self join"]},
+
+{ch:3,t:"Subquery",d:"A SELECT statement nested inside another SQL statement, used to compute an intermediate result that the outer query references.",
+ distractors:["A named SELECT statement stored in the database and treated as a virtual table","A stored procedure that accepts parameters and returns a result set to the caller","A temporary table created in the database session and dropped at session end"],
+ termDistr:["View","Stored procedure","Temporary table"]},
+
+{ch:3,t:"Correlated subquery",d:"A subquery that references one or more columns from the outer query and is re-evaluated once for each row processed by the outer query.",
+ distractors:["A subquery that executes once and supplies its result set as a static list to the outer query","A subquery placed in the FROM clause and treated as a derived inline table","A subquery that uses the UNION operator to combine results from multiple inner queries"],
+ termDistr:["Non-correlated subquery","Derived table","UNION subquery"]},
+
+{ch:3,t:"UNION operator",d:"An operator that combines the result sets of two SELECT statements into one, eliminating duplicate rows by default.",
+ distractors:["An operator that returns only rows present in both result sets of two SELECT statements","An operator that returns rows from the first result set that do not appear in the second","An operator that combines two result sets and retains all duplicates without elimination"],
+ termDistr:["INTERSECT","EXCEPT","UNION ALL"]},
+
+{ch:3,t:"View",d:"A named, stored SELECT statement that behaves as a virtual table — it has no physical storage of its own and is computed on demand.",
+ distractors:["A physical copy of a table's data stored separately and refreshed on a schedule","A temporary result set created during query execution and discarded when the query ends","A permanent copy of query results written to disk and indexed like a regular table"],
+ termDistr:["Materialized view","Derived table","Indexed table"]},
+
+{ch:3,t:"LIKE operator",d:"A pattern-matching operator used in WHERE clauses; % matches zero or more characters and _ matches exactly one character.",
+ distractors:["An operator that tests whether a value falls within a specified inclusive numeric range","An operator that tests whether a value appears in an explicit list or subquery result","An operator that checks whether two string values are identical using case-sensitive comparison"],
+ termDistr:["BETWEEN","IN","= (equals)"]},
+
+{ch:3,t:"BETWEEN operator",d:"An operator that tests whether a value falls within a specified inclusive range, equivalent to value >= low AND value <= high.",
+ distractors:["An operator that matches a value against a pattern using wildcard characters % and _","An operator that tests membership in an explicit list or subquery result set","An operator that returns TRUE when a value is strictly greater than a lower bound"],
+ termDistr:["LIKE","IN","Greater-than (>)"]},
+
+{ch:3,t:"IN operator",d:"An operator that tests whether a value matches any member of a specified list or the result set of a subquery.",
+ distractors:["An operator that tests whether a value falls within a continuous numeric or date range","An operator that matches string values using wildcard pattern characters","An operator that returns the first non-NULL value from a list of expressions"],
+ termDistr:["BETWEEN","LIKE","COALESCE"]},
+
+{ch:3,t:"Alias",d:"A temporary alternative name assigned to a column or table within a query using the AS keyword, improving readability without altering the schema.",
+ distractors:["A permanent alternative name for a table stored in the catalog and shared across sessions","A user-defined synonym for a schema that redirects queries to a different database","A short variable name for a stored procedure parameter declared in the procedure header"],
+ termDistr:["Synonym","Schema alias","Parameter name"]},
+
+/* ─── CH 4 ─── */
+{ch:4,t:"Entity-relationship model",d:"A high-level conceptual data model that represents data requirements using entities, relationships, and attributes, independent of implementation details.",
+ distractors:["A physical schema diagram showing table definitions, indexes, and storage parameters","A normalized relational schema expressed as a set of SQL CREATE TABLE statements","A UML class diagram showing object inheritance hierarchies for application code"],
+ termDistr:["Physical schema","Logical schema","Class diagram"]},
+
+{ch:4,t:"Entity",d:"An object of interest in a data model — a person, place, product, concept, or activity about which data is stored.",
+ distractors:["A descriptive property that characterizes an object, stored as a column value","A statement expressing how two objects of interest are associated with each other","A constraint that limits the allowable values for a property of an object"],
+ termDistr:["Attribute","Relationship","Domain constraint"]},
+
+{ch:4,t:"Attribute",d:"A descriptive property of an entity that is stored as a column value in the corresponding relational table.",
+ distractors:["An object of interest in the business domain about which data must be recorded","A statement about how two entity instances are associated with each other","A rule that governs how many instances of one entity may relate to instances of another"],
+ termDistr:["Entity","Relationship","Cardinality rule"]},
+
+{ch:4,t:"Cardinality",d:"The numerical mapping between entity instances in a relationship, expressed as one-to-one, one-to-many, or many-to-many.",
+ distractors:["Whether participation in a relationship is required for all entity instances or only some","The maximum number of attributes an entity type may have in a conceptual data model","The number of columns required to form the primary key of a weak entity"],
+ termDistr:["Participation","Attribute count","Partial key"]},
+
+{ch:4,t:"Total participation",d:"A participation constraint indicating that every instance of an entity type must appear in at least one instance of the specified relationship.",
+ distractors:["A participation constraint indicating that some instances of an entity may not participate in any instance of the relationship","A cardinality rule stating that one instance on one side of a relationship maps to many on the other","A constraint that prevents an entity instance from participating in more than one relationship instance"],
+ termDistr:["Partial participation","One-to-many cardinality","Exclusion constraint"]},
+
+{ch:4,t:"Weak entity",d:"An entity type that cannot be uniquely identified by its own attributes alone and depends on a related strong entity for identification.",
+ distractors:["An entity type that has a single-column primary key derived from a natural business identifier","An entity type that participates optionally in all relationships defined in the ER model","An entity type that inherits attributes from a supertype in a specialization hierarchy"],
+ termDistr:["Strong entity","Optional entity","Subtype"]},
+
+{ch:4,t:"Conceptual design",d:"The first phase of database design that produces an entity-relationship model capturing data requirements while deliberately ignoring implementation details.",
+ distractors:["The phase that converts an entity-relationship model into SQL table definitions for a specific DBMS","The phase that adds indexes and specifies physical storage organization on disk","The phase that populates tables with sample data to validate the design against business rules"],
+ termDistr:["Logical design","Physical design","Data population"]},
+
+{ch:4,t:"Logical design",d:"The phase of database design that converts an entity-relationship model into a relational schema of tables, columns, and keys for a target DBMS.",
+ distractors:["The phase that produces a technology-independent ER model capturing business data requirements","The phase that adds storage-level structures such as indexes and partitions to the schema","The phase that defines user roles and access permissions for each table in the schema"],
+ termDistr:["Conceptual design","Physical design","Security design"]},
+
+{ch:4,t:"Physical design",d:"The phase of database design that specifies indexes, partitioning, and physical storage organization based on the logical schema.",
+ distractors:["The phase that produces an ER diagram showing entities, attributes, and relationships","The phase that maps entity types to SQL table definitions and assigns primary and foreign keys","The phase that validates the relational schema against normalization rules up to BCNF"],
+ termDistr:["Conceptual design","Logical design","Normalization"]},
+
+{ch:4,t:"First normal form (1NF)",d:"A normalization rule requiring that every column in a table contains only atomic (indivisible) values, all rows are uniquely identifiable, and no repeating groups exist.",
+ distractors:["A normalization rule requiring that every non-key column be fully dependent on the complete primary key with no partial dependencies","A normalization rule requiring the elimination of transitive dependencies among non-key columns","A normalization rule requiring that every functional dependency's determinant be a candidate key"],
+ termDistr:["Second normal form (2NF)","Third normal form (3NF)","Boyce-Codd normal form (BCNF)"]},
+
+{ch:4,t:"Second normal form (2NF)",d:"A normalization rule requiring the table to be in 1NF and every non-key column to be fully functionally dependent on the entire primary key — no partial dependencies allowed.",
+ distractors:["A normalization rule requiring atomic column values, unique rows, and no repeating groups","A normalization rule requiring that non-key columns depend only on the primary key and not on other non-key columns","A normalization rule requiring that every determinant of a functional dependency be a candidate key"],
+ termDistr:["First normal form (1NF)","Third normal form (3NF)","Boyce-Codd normal form (BCNF)"]},
+
+{ch:4,t:"Third normal form (3NF)",d:"A normalization rule requiring the table to be in 2NF and containing no transitive dependencies — non-key columns must depend only on the primary key.",
+ distractors:["A normalization rule requiring atomic values, unique rows, and no repeating groups in each column","A normalization rule requiring full functional dependency of every non-key column on the whole primary key","A stricter normalization rule requiring that every determinant of any functional dependency be a candidate key"],
+ termDistr:["First normal form (1NF)","Second normal form (2NF)","Boyce-Codd normal form (BCNF)"]},
+
+{ch:4,t:"Functional dependency",d:"A relationship where the value of one attribute (or set of attributes) uniquely determines the value of another attribute in the same table.",
+ distractors:["A relationship where two entity types must both participate in every instance of a shared relationship","A relationship where a child entity's primary key is partially derived from a parent entity's key","A relationship where a column value in one table must match an existing value in another table"],
+ termDistr:["Total participation","Partial key dependency","Referential integrity"]},
+
+{ch:4,t:"Boyce-Codd normal form (BCNF)",d:"A strict normalization rule requiring that every non-trivial functional dependency's left-hand side (determinant) be a superkey of the table.",
+ distractors:["A normalization rule requiring that non-key columns have no transitive dependencies on the primary key","A normalization rule requiring full dependency of all non-key columns on the complete composite primary key","A normalization rule requiring atomic column values and unique row identification with no repeating groups"],
+ termDistr:["Third normal form (3NF)","Second normal form (2NF)","First normal form (1NF)"]},
+
+{ch:4,t:"Surrogate key",d:"An artificially generated primary key, typically an auto-incremented integer, that has no business meaning and exists solely to uniquely identify rows.",
+ distractors:["A primary key derived from one or more meaningful business attributes that naturally identify the entity","A primary key composed of two or more columns whose combined values ensure row uniqueness","A key column shared between two interleaved tables that determines their physical co-location on disk"],
+ termDistr:["Natural key","Composite primary key","Cluster key"]},
+
+/* ─── CH 5 ─── */
+{ch:5,t:"Heap table",d:"A table storage structure in which rows are placed in no particular order — new rows are inserted wherever space is available.",
+ distractors:["A storage structure where rows are physically ordered on disk by the values of a designated sort column","A storage structure where rows are distributed into buckets computed by applying a hash function to a key column","A storage structure where rows from two or more tables are interleaved in the same physical storage area"],
+ termDistr:["Sorted table","Hash table","Table cluster"]},
+
+{ch:5,t:"Sorted table",d:"A table storage structure in which rows are physically ordered on storage media by the values of a designated sort column.",
+ distractors:["A storage structure where rows are assigned to numbered buckets via a hash function applied to the key column","A storage structure where rows are stored in insertion order with no imposed physical ordering","A storage structure that interleaves rows from multiple related tables in the same block group"],
+ termDistr:["Hash table","Heap table","Table cluster"]},
+
+{ch:5,t:"Hash table",d:"A table storage structure where a hash function maps each row's key value to a specific bucket, enabling O(1) equality lookups.",
+ distractors:["A storage structure where rows are sorted by a designated column for efficient range scans","A storage structure where rows are placed in insertion order without any organized access path","A storage structure where two or more tables share the same physical storage blocks based on a common key"],
+ termDistr:["Sorted table","Heap table","Table cluster"]},
+
+{ch:5,t:"Hash function",d:"A function applied to the hash key that computes the bucket number where a row is stored in a hash table.",
+ distractors:["A function applied to index entries to determine whether a binary search or a table scan is more efficient","A function that distributes rows evenly across sorted table blocks to minimize overflow pages","A function that maps a foreign key value to the corresponding primary key location in a parent table"],
+ termDistr:["Cost estimation function","Block distribution function","Key lookup function"]},
+
+{ch:5,t:"Modulo function",d:"A common hash function that assigns a row to a bucket by computing the remainder when the key value is divided by the number of buckets.",
+ distractors:["A function that expands the number of buckets dynamically as the table grows beyond a load threshold","A function that interleaves rows from related tables by rounding key values to the nearest block boundary","A function that maps sort-column values to index entries using a balanced tree structure"],
+ termDistr:["Dynamic hash function","Cluster assignment function","B-tree mapping"]},
+
+{ch:5,t:"Dynamic hash function",d:"A hashing scheme that automatically reallocates buckets and redistributes rows as table size grows, preventing bucket overflow.",
+ distractors:["A hashing scheme that assigns each row to one of a fixed, pre-defined number of buckets regardless of table size","A hashing scheme that orders rows within each bucket by the value of a secondary sort column","A hashing scheme that chains overflow rows to a separate linked list appended to the primary bucket"],
+ termDistr:["Static hash function","Sorted-bucket hashing","Overflow chaining"]},
+
+{ch:5,t:"Table cluster",d:"A storage arrangement that physically interleaves rows from two or more tables sharing a common cluster key in the same storage blocks.",
+ distractors:["A storage arrangement that assigns each table to a separate contiguous set of blocks sorted by the primary key","A storage arrangement that distributes rows of a single large table across multiple physical disks for parallelism","A storage arrangement that stores all index entries for a table in a single sorted sequential file"],
+ termDistr:["Partitioned table","Sharded table","Sequential index file"]},
+
+{ch:5,t:"Single-level index",d:"An index structure that consists of a flat sorted file of search-key values paired with pointers to the corresponding table rows.",
+ distractors:["An index structure that organizes entries into a balanced multi-level tree where leaf pages point to table rows","An index structure where each level of the index points to a lower level until the leaf level contains row pointers","An index stored directly within the table's data pages rather than in a separate structure"],
+ termDistr:["B-tree index","Multi-level index","Clustered index"]},
+
+{ch:5,t:"Table scan",d:"A query execution strategy that reads every block of a table sequentially to find rows satisfying a condition, without using any index.",
+ distractors:["A query execution strategy that reads index blocks in order to find pointers to qualifying table rows","A query execution strategy that uses binary search on a sorted index to locate a specific key value","A query execution strategy that probes a hash bucket directly using a computed bucket address"],
+ termDistr:["Index scan","Binary search","Hash probe"]},
+
+{ch:5,t:"Index scan",d:"A query execution strategy that reads index blocks sequentially or via binary search to locate the table blocks containing matching rows.",
+ distractors:["A query execution strategy that reads every data block of the table without consulting any index structure","A query execution strategy that computes a hash bucket address and reads only that bucket's blocks","A query execution strategy that joins two tables by scanning both and probing a hash table built on the smaller one"],
+ termDistr:["Table scan","Hash probe","Hash join"]},
+
+{ch:5,t:"Hit ratio",d:"The fraction of table rows selected by a query predicate; a low hit ratio favors index access, while a high hit ratio favors a table scan.",
+ distractors:["The ratio of index blocks read to total data blocks in a table during an index scan operation","The percentage of buckets in a hash table that are currently occupied by at least one row","The proportion of index entries that point to rows still present in the table after deletions"],
+ termDistr:["Scan ratio","Bucket fill factor","Index density"]},
+
+{ch:5,t:"Binary search",d:"An index search algorithm that repeatedly halves the search space by comparing the target value to the midpoint entry until the target is found.",
+ distractors:["A search algorithm that reads index entries sequentially from beginning to end to locate matching rows","A search algorithm that computes an address directly from the key value using a mathematical function","A search algorithm that traverses a balanced tree from root to leaf to locate the target key value"],
+ termDistr:["Sequential scan","Hash probe","B-tree traversal"]},
+
+{ch:5,t:"Primary index",d:"An index built on the sort column of a sorted table, also called a clustering index because its order matches the physical row order.",
+ distractors:["An index built on any non-sort column, whose logical order differs from the table's physical row order","An index that contains one entry for every individual row in the table regardless of sort order","An index that spans multiple columns and stores a composite key entry for each row"],
+ termDistr:["Secondary index","Dense index","Multi-column index"]},
+
+{ch:5,t:"Secondary index",d:"An index built on a column that is not the table's sort column; its logical order does not match the physical row order — also called a nonclustering index.",
+ distractors:["An index whose sort order matches the physical storage order of the table's data rows","An index that contains one entry per table block rather than one entry per row","An index automatically maintained by the DBMS to enforce a UNIQUE or PRIMARY KEY constraint"],
+ termDistr:["Primary index","Sparse index","Constraint index"]},
+
+{ch:5,t:"Dense index",d:"An index that contains exactly one entry for every row in the table, enabling direct lookup of any individual row.",
+ distractors:["An index that contains one entry for every physical data block rather than every individual row","An index that stores only the entries for rows whose key values fall within a specified range","An index that compresses multiple adjacent entries into a single index block to reduce storage"],
+ termDistr:["Sparse index","Range index","Compressed index"]},
+
+{ch:5,t:"Sparse index",d:"An index that contains one entry per data block rather than one per row; used with sorted tables where the sort order enables range navigation.",
+ distractors:["An index that contains one entry for every individual row, enabling point lookup of any row directly","An index that includes only rows satisfying a filter condition, omitting all other rows from its entries","An index built on multiple columns whose combined values form a composite search key"],
+ termDistr:["Dense index","Filtered index","Multi-column index"]},
+];
+
+// ═══════════════════════════════════════
+//  SHOP ITEMS  (only 3 remain)
+// ═══════════════════════════════════════
+const SHOP_ITEMS = [
+  {id:'fifty',  icon:'⚡', name:'50/50',     desc:'Eliminates 2 wrong answer choices, leaving you with a 50/50.',                                       price:50,  max:5},
+  {id:'skip',   icon:'🌀', name:'Time Warp', desc:'Skip the current question with no HP loss and no gold reward.',                                      price:100, max:3},
+  {id:'revive', icon:'💊', name:'Elixir',    desc:'Restores half of your maximum hearts immediately.',                                                  price:250, max:2},
+];
+
+const CHAPTERS = [
+  {id:1,name:'Chapter 1',sub:'Introduction to Databases',icon:'📚',boss:false},
+  {id:2,name:'Chapter 2',sub:'Database Management',      icon:'⚙️', boss:false},
+  {id:3,name:'Chapter 3',sub:'Complex Queries',          icon:'🔍',boss:false},
+  {id:4,name:'Chapter 4',sub:'Database Design',          icon:'🗺️', boss:false},
+  {id:5,name:'Chapter 5',sub:'Indexes & Structures',     icon:'📑',boss:false},
+  {id:6,name:'Final Boss',sub:'The DBA Overlord',        icon:'💀',boss:true},
+];
+
+const TIMER_DURATION = 5; // seconds for speed bonus
+const SPEED_BONUS    = 5; // extra gold for fast answer
+
+let G = {};
+let timerInterval  = null;
+let timerStart     = null;   // timestamp when question appeared
+let timerElapsed   = 0;      // seconds since question appeared (live)
+// Shop state
+let shopDiscount   = null;   // {id, pct} — refreshed each visit
+let shopReturnFn   = null;   // what "Continue" does
+
+const $ = id => document.getElementById(id);
+const shuffle = a => { const b=[...a]; for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];} return b; };
+
+function initState() {
+  G = {
+    hp:10, maxHp:10, gold:0,
+    completedChapters: new Set(),
+    items: {fifty:0, skip:0, revive:0},
+    runCorrect:0, runWrong:0,
+    currentChapter:null,
+    battleQueue:[], battleIdx:0,
+    currentQ:null, answered:false, selectedIdx:null,
+    eliminated: new Set(),
+    skipPending:false,
+    questionsAnsweredThisFloor: 0, // tracks when to auto-show shop
+  };
+}
+
+// ── Timer helpers ──
+function startTimer() {
+  clearInterval(timerInterval);
+  timerStart   = Date.now();
+  timerElapsed = 0;
+  timerInterval = setInterval(() => {
+    timerElapsed = (Date.now() - timerStart) / 1000;
+    updateTimerBar();
+    if (timerElapsed >= 60) clearInterval(timerInterval); // safety stop
+  }, 100);
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+}
+
+function updateTimerBar() {
+  const fill = document.getElementById('timer-fill');
+  const label = document.getElementById('timer-label');
+  if (!fill || !label) return;
+  const remaining = Math.max(0, TIMER_DURATION - timerElapsed);
+  const pct = (remaining / TIMER_DURATION) * 100;
+  const color = remaining > 2.5 ? '#22c55e' : remaining > 1 ? '#f59e0b' : '#ef4444';
+  fill.style.width  = pct + '%';
+  fill.style.background = color;
+  label.style.color = color;
+  label.textContent = remaining > 0 ? remaining.toFixed(1) + 's' : '0.0s';
+}
+
+// ── Discount helpers ──
+function rollDiscount() {
+  const items = SHOP_ITEMS;
+  const picked = items[Math.floor(Math.random() * items.length)];
+  const pct = Math.random() < 0.5 ? 25 : 50;
+  shopDiscount = { id: picked.id, pct };
+}
+
+function discountedPrice(item) {
+  if (shopDiscount && shopDiscount.id === item.id) {
+    return Math.round(item.price * (1 - shopDiscount.pct / 100));
+  }
+  return item.price;
+}
+
+// ── Toast ──
+let toastT = null;
+function toast(msg, type='info') {
+  const el = $('toast');
+  el.textContent = msg;
+  el.className = `toast show ${type}`;
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.className='toast', 2400);
+}
+
+// ── Modal ──
+function modal(title, body, btns) {
+  $('m-title').textContent = title;
+  $('m-body').textContent = body;
+  const c = $('m-btns'); c.innerHTML = '';
+  btns.forEach(b => {
+    const el = document.createElement('button');
+    el.className = `mbtn ${b.cls||'s'}`;
+    el.textContent = b.label;
+    el.onclick = () => { closeModal(); b.action(); };
+    c.appendChild(el);
+  });
+  $('overlay').classList.add('active');
+}
+function closeModal() { $('overlay').classList.remove('active'); }
+
+// ── Screens ──
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+// ══════════════════════════════
+//  START
+// ══════════════════════════════
+function startGame() { initState(); showMap(); }
+
+// ══════════════════════════════
+//  MAP
+// ══════════════════════════════
+function showMap() {
+  updateHUD();
+  renderMap();
+  showScreen('map-screen');
+}
+
+function updateHUD() {
+  $('hud-gold').textContent      = G.gold;
+  $('battle-gold').textContent   = G.gold;
+  $('shop-gold').textContent     = G.gold;
+  $('shop-gold-display').textContent = G.gold;
+
+  // map hp pips
+  let h = '';
+  for(let i=0;i<G.maxHp;i++) h += `<span class="hp-pip ${i<G.hp?'':'empty'}">❤️</span>`;
+  const mapHp = $('map-hp-row');
+  if(mapHp) mapHp.innerHTML = `<span class="hp-label">HP:</span>${h}`;
+}
+
+function renderMap() {
+  const c = $('chapter-nodes'); c.innerHTML = '';
+  const bossUnlocked = G.completedChapters.size >= 5;
+
+  CHAPTERS.forEach((ch, i) => {
+    const done   = G.completedChapters.has(ch.id);
+    const locked = ch.boss ? !bossUnlocked : (i > 0 && !G.completedChapters.has(i));
+    const isNext = !done && !locked;
+
+    if(i > 0) {
+      const conn = document.createElement('div');
+      conn.className = `node-connector ${G.completedChapters.has(i)?'done':''}`;
+      c.appendChild(conn);
+    }
+
+    let bc, bt;
+    if(done)             { bc='bdone'; bt='✓ Cleared'; }
+    else if(ch.boss&&isNext) { bc='bboss'; bt='BOSS'; }
+    else if(isNext)      { bc='bnext'; bt='▶ Enter'; }
+    else                 { bc='blocked'; bt='🔒'; }
+
+    const pool = TERMS.filter(t=>t.ch===ch.id);
+    const qCount = ch.boss ? '20 random' : `${pool.length} questions`;
+
+    const node = document.createElement('div');
+    node.className = 'chapter-node';
+    node.innerHTML = `
+      <button class="node-btn ${done?'done':''} ${isNext?'active-node':''} ${ch.boss?'boss-node':''}"
+        onclick="enterChapter(${ch.id})" ${locked?'disabled':''}>
+        <div class="node-icon">${ch.icon}</div>
+        <div class="node-info">
+          <div class="node-name">${ch.name}: ${ch.sub}</div>
+          <div class="node-desc">${qCount} · ${ch.boss?'All chapters':'Chapter '+ch.id+' terms only'}</div>
+        </div>
+        <span class="node-badge ${bc}">${bt}</span>
+      </button>`;
+    c.appendChild(node);
+  });
+}
+
+// ══════════════════════════════
+//  BATTLE
+// ══════════════════════════════
+function enterChapter(chId) {
+  const ch = CHAPTERS.find(c=>c.id===chId);
+  G.currentChapter = chId;
+  G.battleQueue = ch.boss ? shuffle(TERMS).slice(0,20) : shuffle(TERMS.filter(t=>t.ch===chId));
+  G.battleIdx = 0;
+  G.answered = false; G.selectedIdx = null; G.eliminated = new Set(); G.skipPending = false;
+  G.questionsAnsweredThisFloor = 0;
+  $('battle-title').textContent = ch.boss ? '💀 BOSS: The DBA Overlord' : `${ch.icon} ${ch.name}`;
+  showScreen('battle-screen');
+  loadQuestion();
+}
+
+function confirmQuit() {
+  modal(
+    'Abandon your run?',
+    'Quitting will end your dungeon run entirely. All progress will be lost.',
+    [
+      {label:'Keep Fighting', cls:'p', action:()=>{}},
+      {label:'Quit Run',      cls:'danger', action:()=>{ showScreen('start-screen'); }},
+    ]
+  );
+}
+
+// ── Build question with HARD distractors ──
+function buildQuestion(term) {
+  // 50% chance: term→definition, 50%: definition→term
+  const type = Math.random() > 0.5 ? 'td' : 'dt';
+
+  let wrongOpts;
+  if(type === 'td') {
+    // Show term, answer is correct definition; wrongs are term's own distractors + similar terms' defs
+    const domainDistractors = term.distractors || [];
+    // pad with defs from other terms if needed
+    const otherDefs = shuffle(TERMS.filter(t=>t.t!==term.t)).map(t=>t.d);
+    const pool = [...domainDistractors, ...otherDefs].filter(d=>d!==term.d);
+    wrongOpts = shuffle(pool).slice(0,3).map(d=>({display:d, correct:false}));
+    const correct = {display:term.d, correct:true};
+    return {term, type, opts: shuffle([correct,...wrongOpts])};
+  } else {
+    // Show definition, answer is correct term; wrongs are plausible similar terms
+    const domainTermDistractors = term.termDistr || [];
+    const otherTerms = shuffle(TERMS.filter(t=>t.t!==term.t)).map(t=>t.t);
+    const pool = [...domainTermDistractors, ...otherTerms].filter(t=>t!==term.t);
+    wrongOpts = shuffle(pool).slice(0,3).map(t=>({display:t, correct:false}));
+    const correct = {display:term.t, correct:true};
+    return {term, type, opts: shuffle([correct,...wrongOpts])};
+  }
+}
+
+function loadQuestion() {
+  G.answered = false; G.selectedIdx = null; G.eliminated = new Set(); G.skipPending = false;
+  if(G.battleIdx >= G.battleQueue.length) { floorComplete(); return; }
+  G.currentQ = buildQuestion(G.battleQueue[G.battleIdx]);
+  renderBattle();
+  startTimer();
+}
+
+// ── Render ──
+function renderBattle() {
+  const body = $('battle-body');
+  const q = G.currentQ;
+  const isBoss = G.currentChapter === 6;
+  const ch = CHAPTERS.find(c=>c.id===G.currentChapter);
+  const total = G.battleQueue.length;
+  const current = G.battleIdx + 1;
+  const enemyHpPct = Math.max(0,((total-G.battleIdx)/total)*100);
+
+  // Player hearts
+  let hearts = '';
+  for(let i=0;i<G.maxHp;i++) hearts += `<span class="php-heart ${i<G.hp?'':'empty'}">❤️</span>`;
+
+  // Items bar
+  const itemDefs = {fifty:{icon:'⚡',label:'50/50'}, skip:{icon:'🌀',label:'Skip'}, revive:{icon:'💊',label:'Elixir'}};
+  let itemsHtml = '';
+  let anyItem = false;
+  for(const [id, cnt] of Object.entries(G.items)) {
+    if(cnt>0) {
+      anyItem = true;
+      itemsHtml += `<button class="item-slot" onclick="useItem('${id}')" title="${itemDefs[id].label}">
+        ${itemDefs[id].icon} ${itemDefs[id].label} <span class="item-count">×${cnt}</span>
+      </button>`;
+    }
+  }
+  if(!anyItem) itemsHtml = '<span class="no-items-msg">No items — shop opens every 10 questions</span>';
+
+  // Question text
+  const questionHtml = q.type === 'td'
+    ? `Which of the following <em>best</em> defines <strong>${q.term.t}</strong>?`
+    : `Which term is <em>most accurately</em> described by the following?<br><br><em style="color:var(--muted);font-size:14px;line-height:1.7">"${q.term.d}"</em>`;
+
+  // Timer bar (only before answering)
+  const timerRemaining = Math.max(0, TIMER_DURATION - timerElapsed);
+  const timerPct = (timerRemaining / TIMER_DURATION) * 100;
+  const timerColor = timerRemaining > 2.5 ? '#22c55e' : timerRemaining > 1 ? '#f59e0b' : '#ef4444';
+  const timerHtml = !G.answered ? `
+    <div class="timer-wrap">
+      <div class="timer-bar-bg"><div class="timer-bar-fill" id="timer-fill" style="width:${timerPct}%;background:${timerColor}"></div></div>
+      <span class="timer-label" id="timer-label" style="color:${timerColor}">${timerRemaining.toFixed(1)}s</span>
+      <span class="speed-bonus">⚡ +${SPEED_BONUS} if under ${TIMER_DURATION}s</span>
+    </div>` : '';
+
+  // Options
+  const labels = ['A','B','C','D'];
+  let optsHtml = q.opts.map((opt, i) => {
+    let cls = 'opt-btn';
+    let dis = '';
+    if(G.eliminated.has(i)) cls += ' elim';
+    if(G.answered) {
+      dis = 'disabled';
+      if(opt.correct)            cls += ' correct';
+      else if(i===G.selectedIdx) cls += ' wrong';
+    }
+    return `<button class="${cls}" ${dis} onclick="answerQ(${i})">
+      <span class="opt-label">${labels[i]}</span>${opt.display}
+    </button>`;
+  }).join('');
+
+  // Feedback
+  let feedbackHtml = '';
+  if(G.answered && G.selectedIdx !== null) {
+    const ok = q.opts[G.selectedIdx].correct;
+    const speedGot = ok && G._lastWasFast ? ` <span style="color:var(--gold)">+${SPEED_BONUS} ⚡ speed bonus!</span>` : '';
+    feedbackHtml = ok
+      ? `<div class="feedback-bar c">✓ Correct! +10 🪙${speedGot}</div>`
+      : `<div class="feedback-bar w">✗ Wrong! −1 ❤️ &nbsp;·&nbsp; Correct: <em>${q.opts.find(o=>o.correct).display}</em></div>`;
+  } else if(G.answered && G.skipPending) {
+    feedbackHtml = `<div class="feedback-bar" style="background:var(--purple-bg);color:var(--purple);border:1px solid rgba(167,139,250,.3)">🌀 Question skipped.</div>`;
+  }
+
+  // Next button — show shop trigger info
+  let nextHtml = '';
+  if(G.answered) {
+    const isLast = G.battleIdx+1 >= total;
+    const nextIsShop = !isLast && (G.questionsAnsweredThisFloor % 10 === 0) && G.questionsAnsweredThisFloor > 0;
+    let btnTxt;
+    if(isLast)        btnTxt = isBoss ? '⚔️ Finish Boss!' : '🏆 Complete Floor!';
+    else if(nextIsShop) btnTxt = '🛒 Enter Shop →';
+    else              btnTxt = 'Next Question →';
+    nextHtml = `<button class="next-btn ${isBoss?'boss-next':''}" onclick="nextQuestion()">${btnTxt}</button>`;
+  }
+
+  body.innerHTML = `
+    <div class="enemy-card ${isBoss?'boss-card':''}">
+      <div class="q-counter">${current} / ${total}</div>
+      <span class="enemy-sprite">${ch.icon}</span>
+      <div class="enemy-name">${isBoss ? '💀 The DBA Overlord' : ch.name+': '+ch.sub}</div>
+      <div class="enemy-bar-row">
+        <span class="elabel">Questions left</span>
+        <div class="ebar"><div class="ebar-fill" style="width:${enemyHpPct}%"></div></div>
+        <span class="elabel">${total-G.battleIdx}</span>
+      </div>
+      ${!G.answered ? '<div class="enemy-intent">⚠️ Preparing attack — answer to counter!</div>' : ''}
+    </div>
+
+    <div class="player-hp-row">
+      <span class="php-label">Your HP:</span>
+      <div class="php-hearts">${hearts}</div>
+    </div>
+
+    <div class="items-row"><span class="items-label">Items:</span>${itemsHtml}</div>
+
+    <div class="question-card">
+      <div class="q-meta">Chapter ${q.term.ch} · ${q.type==='td'?'Definition':'Term'} question</div>
+      <div class="q-text">${questionHtml}</div>
+    </div>
+
+    ${timerHtml}
+    <div class="options">${optsHtml}</div>
+    ${feedbackHtml}
+    ${nextHtml}
+  `;
+  updateHUD();
+}
+
+function answerQ(i) {
+  if(G.answered) return;
+  stopTimer();
+  const elapsed = (Date.now() - timerStart) / 1000;
+  const wasFast = elapsed <= TIMER_DURATION;
+  G.answered = true;
+  G.selectedIdx = i;
+  G._lastWasFast = false;
+  if(G.currentQ.opts[i].correct) {
+    const goldEarned = 10 + (wasFast ? SPEED_BONUS : 0);
+    G.gold += goldEarned;
+    G.runCorrect++;
+    G._lastWasFast = wasFast;
+    G.questionsAnsweredThisFloor++;
+  } else {
+    G.hp--; G.runWrong++;
+    G.questionsAnsweredThisFloor++;
+    if(G.hp <= 0) { renderBattle(); setTimeout(showDeath, 1100); return; }
+  }
+  renderBattle();
+}
+
+function nextQuestion() {
+  // Check if it's time for a mandatory shop visit (every 10 answered questions)
+  const nextIdx = G.battleIdx + 1;
+  const moreLeft = nextIdx < G.battleQueue.length;
+  if(moreLeft && G.questionsAnsweredThisFloor > 0 && G.questionsAnsweredThisFloor % 10 === 0) {
+    G.battleIdx++;
+    triggerMidBattleShop();
+    return;
+  }
+  G.battleIdx++;
+  loadQuestion();
+}
+
+// ── Items ──
+function useItem(id) {
+  if(G.answered) { toast("Can't use items after answering!", 'bad'); return; }
+  if(G.items[id]<=0) return;
+  if(id==='fifty') {
+    const wrongIdxs = G.currentQ.opts.map((o,i)=>({o,i})).filter(x=>!x.o.correct&&!G.eliminated.has(x.i)).map(x=>x.i);
+    if(wrongIdxs.length < 2) { toast('Nothing to eliminate!','bad'); return; }
+    shuffle(wrongIdxs).slice(0,2).forEach(i=>G.eliminated.add(i));
+    G.items.fifty--;
+    toast('⚡ 50/50 — 2 wrong answers eliminated!','good');
+    renderBattle();
+  } else if(id==='skip') {
+    stopTimer();
+    G.items.skip--;
+    G.answered = true; G.selectedIdx = null; G.skipPending = true;
+    G.questionsAnsweredThisFloor++;
+    toast('🌀 Question skipped!','info');
+    renderBattle();
+  } else if(id==='revive') {
+    const restore = Math.ceil(G.maxHp/2);
+    G.hp = Math.min(G.maxHp, G.hp + restore);
+    G.items.revive--;
+    toast(`💊 Elixir! +${restore} ❤️ restored`,'good');
+    renderBattle();
+  }
+}
+
+// ── Floor complete ──
+function floorComplete() {
+  const isBoss = G.currentChapter===6;
+  const bonus = isBoss ? 50 : 20;
+  G.gold += bonus;
+  G.completedChapters.add(G.currentChapter);
+  if(isBoss) { showVictory(); return; }
+  const ch = CHAPTERS.find(c=>c.id===G.currentChapter);
+  modal(
+    `${ch.icon} Floor Cleared!`,
+    `${ch.name} defeated! +${bonus} 🪙 bonus gold. Head to the shop or press on.`,
+    [
+      {label:'🛒 Shop',    cls:'s', action:()=>showShop()},
+      {label:'Continue →', cls:'p', action:()=>showMap()},
+    ]
+  );
+  updateHUD();
+}
+
+// ── Mid-battle shop trigger ──
+function triggerMidBattleShop() {
+  rollDiscount();
+  shopReturnFn = () => {
+    showScreen('battle-screen');
+    loadQuestion();
+  };
+  const discItem = SHOP_ITEMS.find(i=>i.id===shopDiscount.id);
+  $('shop-banner').innerHTML = `🛒 <strong>Checkpoint Shop!</strong><br>Every 10 questions you get a pit stop. Today's deal: <strong>${discItem.icon} ${discItem.name}</strong> is <strong>${shopDiscount.pct}% OFF</strong>!`;
+  $('shop-continue-btn').textContent = '⚔️ Continue Battle';
+  updateHUD();
+  renderShop();
+  showScreen('shop-screen');
+}
+
+// ── Map shop (freeform, between floors) ──
+function openMapShop() {
+  rollDiscount();
+  shopReturnFn = () => showMap();
+  const discItem = SHOP_ITEMS.find(i=>i.id===shopDiscount.id);
+  $('shop-banner').innerHTML = `🛒 <strong>Item Shop</strong><br>Today's deal: <strong>${discItem.icon} ${discItem.name}</strong> is <strong>${shopDiscount.pct}% OFF</strong>!`;
+  $('shop-continue-btn').textContent = '← Back to Map';
+  updateHUD();
+  renderShop();
+  showScreen('shop-screen');
+}
+
+function resumeFromShop() {
+  if(shopReturnFn) shopReturnFn();
+}
+
+// ── Called by floor-complete modal ──
+function showShop() { openMapShop(); }
+
+function renderShop() {
+  $('shop-grid').innerHTML = SHOP_ITEMS.map(item => {
+    const owned    = G.items[item.id] || 0;
+    const price    = discountedPrice(item);
+    const isDisc   = shopDiscount && shopDiscount.id === item.id;
+    const can      = G.gold >= price && owned < item.max;
+    const priceHtml = isDisc
+      ? `<div class="si-price-row">
+           <span class="si-price">${price} 🪙</span>
+           <span class="si-price-orig">${item.price}</span>
+           <span class="discount-badge">-${shopDiscount.pct}%</span>
+         </div>`
+      : `<div class="si-price-row"><span class="si-price">${price} 🪙</span></div>`;
+
+    return `<div class="shop-item ${can?'':'cant'}" onclick="${can?`buyItem('${item.id}')`:''}" style="${isDisc?'border-color:rgba(239,68,68,.35);':''}" >
+      <div class="si-icon">${item.icon}</div>
+      <div class="si-name">${item.name}${isDisc?` <span class="discount-badge">SALE</span>`:''}</div>
+      <div class="si-desc">${item.desc}</div>
+      ${priceHtml}
+      <div class="si-owned">Owned: ${owned}/${item.max}</div>
+    </div>`;
+  }).join('');
+}
+
+function buyItem(id) {
+  const item  = SHOP_ITEMS.find(i=>i.id===id);
+  if(!item) return;
+  const price = discountedPrice(item);
+  if(G.gold < price || (G.items[id]||0) >= item.max) return;
+  G.gold -= price;
+  G.items[id] = (G.items[id]||0) + 1;
+  toast(`${item.icon} ${item.name} purchased!`, 'good');
+  updateHUD();
+  renderShop();
+}
+
+// ══════════════════════════════
+//  END SCREENS
+// ══════════════════════════════
+function showDeath() {
+  const acc = G.runCorrect+G.runWrong > 0 ? Math.round(G.runCorrect/(G.runCorrect+G.runWrong)*100) : 0;
+  $('death-card').innerHTML = `
+    <span class="res-emoji">💀</span>
+    <div class="res-title" style="color:var(--red)">You Died</div>
+    <div class="res-sub">The dungeon claimed you. Study up and try again.</div>
+    <div class="res-stats">
+      <div class="rs"><div class="rs-num">${G.runCorrect}</div><div class="rs-label">Correct</div></div>
+      <div class="rs"><div class="rs-num">${G.runWrong}</div><div class="rs-label">Missed</div></div>
+      <div class="rs"><div class="rs-num">${acc}%</div><div class="rs-label">Accuracy</div></div>
+    </div>
+    <button class="res-btn" style="background:var(--red)" onclick="showScreen('start-screen')">⚔️ Try Again</button>`;
+  showScreen('death-screen');
+}
+
+function showVictory() {
+  const acc = G.runCorrect+G.runWrong > 0 ? Math.round(G.runCorrect/(G.runCorrect+G.runWrong)*100) : 0;
+  $('result-card').innerHTML = `
+    <span class="res-emoji">🏆</span>
+    <div class="res-title" style="color:var(--gold)">Victory!</div>
+    <div class="res-sub">You defeated the DBA Overlord and mastered all 5 chapters.<br>You are ready for the D426 exam.</div>
+    <div class="res-stats">
+      <div class="rs"><div class="rs-num">${G.runCorrect}</div><div class="rs-label">Correct</div></div>
+      <div class="rs"><div class="rs-num">${G.runWrong}</div><div class="rs-label">Missed</div></div>
+      <div class="rs"><div class="rs-num">${acc}%</div><div class="rs-label">Accuracy</div></div>
+    </div>
+    <button class="res-btn" onclick="showScreen('start-screen')">🔁 New Run</button>`;
+  showScreen('result-screen');
+}
+</script>
+</body>
+</html>
